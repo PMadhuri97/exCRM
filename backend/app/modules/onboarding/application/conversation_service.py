@@ -144,8 +144,13 @@ class ConversationService:
         reason: str | None = None,
         check_back_on: date | None = None,
         actor_id: str | None,
+        commit: bool = True,
     ) -> ExporterProfile:
         """Move the conversation gauge, and record the move.
+
+        ``commit=False`` flushes instead of committing, so a caller doing more in
+        the same transaction (logging a call — ``CallLogService``) commits it all
+        together or not at all.
 
         The rules, in the order they are checked — each one before anything is
         assigned, so a refused move leaves no partial write and no history row:
@@ -208,8 +213,11 @@ class ConversationService:
             source="conversation_service.set_conversation",
             check_back_on=profile.conversation_check_back_on,
         )
-        await self._db.commit()
-        await self._db.refresh(profile)
+        if commit:
+            await self._db.commit()
+            await self._db.refresh(profile)
+        else:
+            await self._db.flush()
 
         logger.info(
             "conversation.set.ok",

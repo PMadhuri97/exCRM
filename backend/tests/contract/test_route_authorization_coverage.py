@@ -41,8 +41,15 @@ ALL_ROLES = frozenset(UserRole)
 STAFF = frozenset({UserRole.OPERATIONS, UserRole.COMPLIANCE, UserRole.ADMIN})
 COMPLIANCE_OR_ADMIN = frozenset({UserRole.COMPLIANCE, UserRole.ADMIN})
 ADMIN_ONLY = frozenset({UserRole.ADMIN})
-#: Staff plus DEVELOPER, which may read the CRM but never unmasked.
-READERS = STAFF | {UserRole.DEVELOPER}
+#: Staff plus DEVELOPER and FINANCER, which read the CRM but never unmasked.
+READERS = STAFF | {UserRole.DEVELOPER, UserRole.FINANCER}
+#: Staff plus FINANCER (underwriter and financier, auth_0005): the background-check,
+#: screening and verification reads an underwriting view needs. DEVELOPER stays out (D8).
+UNDERWRITING_READERS = STAFF | {UserRole.FINANCER}
+#: Who records a deal's PO and invoices (build prompt chunk 2): COMPLIANCE may not.
+PO_EDITORS = frozenset({UserRole.OPERATIONS, UserRole.ADMIN})
+#: Who builds saved lists (chunk 3): ADMIN and DEVELOPER. Every reader sees them.
+LIST_BUILDERS = frozenset({UserRole.ADMIN, UserRole.DEVELOPER})
 
 _ID = "00000000-0000-4000-8000-000000000000"
 
@@ -178,16 +185,16 @@ GATED_ROUTES: dict[tuple[str, str], frozenset[UserRole]] = {
     ("GET", f"{CRM}/exporters/{{customer_id}}/history"): READERS,
     ("GET", f"{CRM}/deals/{{deal_id}}/history"): READERS,
     # ── Exporter CRM: compliance workspace ───────────────────────────────────
-    ("GET", f"{CRM}/exporters/{{customer_id}}/screening-review"): STAFF,
+    ("GET", f"{CRM}/exporters/{{customer_id}}/screening-review"): UNDERWRITING_READERS,
     (
         "PUT",
         f"{CRM}/exporters/{{customer_id}}/screening-review/{{item_key}}",
     ): COMPLIANCE_OR_ADMIN,
-    ("GET", f"{CRM}/exporters/{{customer_id}}/bank-activity"): STAFF,
+    ("GET", f"{CRM}/exporters/{{customer_id}}/bank-activity"): UNDERWRITING_READERS,
     # ── Exporter CRM: verification results ───────────────────────────────────
     ("POST", f"{CRM}/verifications"): COMPLIANCE_OR_ADMIN,
-    ("GET", f"{CRM}/verifications"): STAFF,
-    ("GET", f"{CRM}/verifications/{{verification_result_id}}"): STAFF,
+    ("GET", f"{CRM}/verifications"): UNDERWRITING_READERS,
+    ("GET", f"{CRM}/verifications/{{verification_result_id}}"): UNDERWRITING_READERS,
     ("POST", f"{CRM}/verifications/{{verification_result_id}}/review"): COMPLIANCE_OR_ADMIN,
     # ══ Section 9.3 — anchor blocks for Developers 3A and 3B ══════════════════
     #
@@ -232,7 +239,20 @@ GATED_ROUTES: dict[tuple[str, str], frozenset[UserRole]] = {
     # must never be one: `WITHDRAWN` is how a deal ends (deal contract §2).
     ("POST", f"{CRM}/exporters/{{company_id}}/deals"): STAFF,
     ("GET", f"{CRM}/exporters/{{company_id}}/deals"): READERS,
+    ("GET", f"{CRM}/deals"): READERS,
+    ("GET", f"{CRM}/deals/summary"): READERS,
     ("GET", f"{CRM}/deals/{{deal_id}}"): READERS,
+    ("GET", f"{CRM}/deals/{{deal_id}}/purchase-order"): READERS,
+    ("PUT", f"{CRM}/deals/{{deal_id}}/purchase-order"): PO_EDITORS,
+    ("POST", f"{CRM}/deals/{{deal_id}}/purchase-order/invoices"): PO_EDITORS,
+    ("PUT", f"{CRM}/deals/{{deal_id}}/purchase-order/invoices/{{invoice_id}}"): PO_EDITORS,
+    ("DELETE", f"{CRM}/deals/{{deal_id}}/purchase-order/invoices/{{invoice_id}}"): PO_EDITORS,
+    ("GET", f"{CRM}/deals/{{deal_id}}/purchase-order/suggestions"): PO_EDITORS,
+    ("GET", f"{CRM}/saved-lists"): READERS,
+    ("POST", f"{CRM}/exporters/{{customer_id}}/calls"): STAFF,
+    ("POST", f"{CRM}/saved-lists"): LIST_BUILDERS,
+    ("PUT", f"{CRM}/saved-lists/{{list_id}}"): LIST_BUILDERS,
+    ("DELETE", f"{CRM}/saved-lists/{{list_id}}"): LIST_BUILDERS,
     ("POST", f"{CRM}/deals/{{deal_id}}/transitions"): STAFF,
     ("PUT", f"{CRM}/deals/{{deal_id}}/buyer"): STAFF,
     #
@@ -265,16 +285,16 @@ GATED_ROUTES: dict[tuple[str, str], frozenset[UserRole]] = {
     # unanswered; the recorded default is no widening. A decision's reason is free
     # text a compliance officer wrote about a company, so admitting DEVELOPER "for
     # now" would be deciding D8 by omission.
-    ("GET", f"{CRM}/exporters/{{company_id}}/background-check"): STAFF,
+    ("GET", f"{CRM}/exporters/{{company_id}}/background-check"): UNDERWRITING_READERS,
     ("POST", f"{CRM}/exporters/{{company_id}}/background-check/decisions"): STAFF,
-    ("GET", f"{CRM}/exporters/{{company_id}}/background-check/decisions"): STAFF,
+    ("GET", f"{CRM}/exporters/{{company_id}}/background-check/decisions"): UNDERWRITING_READERS,
     #
     # ── Verification and screening — owner: Developer 4B ──
     # (4B appends here; 4A does not.)
     (
         "GET",
         f"{CRM}/exporters/{{customer_id}}/screening-review/{{item_key}}/history",
-    ): STAFF,
+    ): UNDERWRITING_READERS,
 }
 
 

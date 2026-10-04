@@ -28,6 +28,8 @@ from app.modules.onboarding.api.schemas.masking import (
 )
 from app.modules.onboarding.domain.engagement_views import ConversationView
 from app.modules.onboarding.domain.entities.engagement_enums import (
+    CallDirection,
+    CallResult,
     ExporterActivityType,
     ExporterConversation,
 )
@@ -106,10 +108,51 @@ class ExporterActivityResponse(BaseModel):
     occurred_at: datetime
     due_at: datetime | None
     created_at: datetime
+    #: A call's details (Centrex §6, migration 0025); `null` on everything else and
+    #: on calls logged before the call pop-up.
+    call_direction: CallDirection | None = None
+    call_result: CallResult | None = None
+    call_duration_seconds: int | None = None
+    contact_id: uuid.UUID | None = None
 
     def named(self, names: Mapping[str, str]) -> ExporterActivityResponse:
         """This activity with `actor_name` filled from `names` (`api/actor_names.py`)."""
         return self.model_copy(update={"actor_name": names.get(self.actor_id)})
+
+
+class CallStatusMove(BaseModel):
+    """Where the conversation gauge goes after the call — the same rules as
+    `PUT /conversation`: NOT_NOW needs a reason and a check-back date."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    to: ExporterConversation
+    reason: str | None = Field(default=None, max_length=2000)
+    check_back_on: date | None = None
+
+
+class LogCallRequest(BaseModel):
+    """Centrex §6's call pop-up, in one save: the call, optionally a status move,
+    optionally a follow-up. All of it commits together or not at all."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    contact_id: uuid.UUID | None = Field(default=None, description="One of this company's contacts.")
+    direction: CallDirection
+    result: CallResult
+    duration_seconds: int = Field(default=0, ge=0, le=86_400)
+    notes: str | None = Field(default=None, max_length=5000)
+    status: CallStatusMove | None = None
+    follow_up_at: datetime | None = Field(default=None, description="Must be in the future.")
+    follow_up_subject: str | None = Field(default=None, max_length=500)
+
+
+class LoggedCallResponse(BaseModel):
+    call: ExporterActivityResponse
+    follow_up: ExporterActivityResponse | None
+    conversation: ExporterConversation | None = Field(
+        description="The gauge's new value when the call moved it; `null` otherwise."
+    )
 
 
 class ExporterActivityListResponse(BaseModel):

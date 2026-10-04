@@ -63,11 +63,11 @@ function decision(overrides: Partial<BackgroundCheckDecision> = {}): BackgroundC
   };
 }
 
-function renderPanel(isStaff = true) {
+function renderPanel(canView = true) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
-      <BackgroundCheckPanel customerId={COMPANY_ID} isStaff={isStaff} />
+      <BackgroundCheckPanel customerId={COMPANY_ID} canView={canView} />
     </QueryClientProvider>,
   );
 }

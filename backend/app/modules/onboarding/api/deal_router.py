@@ -17,7 +17,8 @@ in `GATED_ROUTES` and a refusal test.
 from __future__ import annotations
 
 import uuid
-from typing import Annotated
+from datetime import date, datetime
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -25,16 +26,21 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.modules.onboarding.api.schemas.deal import (
     DealListItemResponse,
     DealListResponse,
+    DealQueueResponse,
     DealResponse,
+    DealSummaryResponse,
     OpenDealRequest,
     SetDealBuyerRequest,
     TransitionDealStageRequest,
 )
+from app.modules.onboarding.application.deal_queue_service import DealQueueService
 from app.modules.onboarding.application.deal_service import DealService
+from app.modules.onboarding.domain.deal_views import DealQueueSort
 from app.modules.onboarding.domain.entities.deal_enums import DealStage
 from app.platform.authentication.models import User, UserRole
 from app.platform.authorization.services import require_role
 from app.platform.database.services import get_db
+from app.shared.exceptions import ValidationError
 
 router = APIRouter(tags=["Exporter CRM"])
 
@@ -44,9 +50,13 @@ router = APIRouter(tags=["Exporter CRM"])
 _STAFF = require_role(UserRole.OPERATIONS, UserRole.COMPLIANCE, UserRole.ADMIN)
 #: The same three, as data: who `can_open_deal` may say yes to.
 _OPENING_ROLES = frozenset({UserRole.OPERATIONS, UserRole.COMPLIANCE, UserRole.ADMIN})
-# Reads additionally admit DEVELOPER, which may read the CRM and never writes.
+# Reads additionally admit DEVELOPER and FINANCER, which read the CRM and never write.
 _READER = require_role(
-    UserRole.OPERATIONS, UserRole.COMPLIANCE, UserRole.ADMIN, UserRole.DEVELOPER
+    UserRole.OPERATIONS,
+    UserRole.COMPLIANCE,
+    UserRole.ADMIN,
+    UserRole.DEVELOPER,
+    UserRole.FINANCER,
 )
 
 
@@ -126,6 +136,92 @@ async def list_company_deals(
         can_open_deal=current_user.role in _OPENING_ROLES
         and await service.can_open_deal(company_id),
     )
+
+
+# The two cross-company reads come before `/deals/{deal_id}`: routes match in
+# order, and `summary` would otherwise be taken for a deal id and refused as 422.
+
+
+@router.get(
+    "/deals",
+    response_model=DealQueueResponse,
+    summary="List deals across every company (the Deals list)",
+    description=(
+        "The operational queue over every company's deals (Centrex §4/§5). "
+        "`stage` may be repeated. `q` matches the deal reference, the company name "
+        "or the buyer name, case-insensitively; no identifier is searchable here. "
+        "`company_id` narrows to one company, so the company page can reuse the "
+        "same table. `opened_from` / `opened_to` are calendar days (UTC), both "
+        "inclusive.\n\n"
+        "`stage_counts` counts the rows per stage honouring every filter **except** "
+        "`stage`, so each stage tab can show its live count.\n\n"
+        "DEVELOPER reads the list without the company's background check "
+        "(decision D8)."
+    ),
+    responses={
+        401: {"description": "Unauthorized"},
+        403: {"description": "CRM read role required"},
+        422: {"description": "`opened_from` is after `opened_to`, or an unknown sort"},
+    },
+)
+async def list_deals(
+    current_user: Annotated[User, Depends(_READER)],
+    stage: Annotated[list[DealStage] | None, Query()] = None,
+    q: Annotated[str | None, Query(max_length=200)] = None,
+    company_id: uuid.UUID | None = None,
+    opened_from: date | None = None,
+    opened_to: date | None = None,
+    sort: DealQueueSort = DealQueueSort.UPDATED_AT,
+    order: Annotated[Literal["asc", "desc"], Query()] = "desc",
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    db: AsyncSession = Depends(get_db),
+) -> DealQueueResponse:
+    if opened_from is not None and opened_to is not None and opened_from > opened_to:
+        raise ValidationError("`opened_from` must not be after `opened_to`.")
+    page = await DealQueueService(db).list_queue(
+        stages=tuple(stage) if stage else None,
+        search=q,
+        company_id=company_id,
+        opened_on_or_after=opened_from,
+        opened_on_or_before=opened_to,
+        sort=sort,
+        descending=order == "desc",
+        limit=limit,
+        offset=offset,
+    )
+    return DealQueueResponse.from_page(page, current_user, limit=limit, offset=offset)
+
+
+@router.get(
+    "/deals/summary",
+    response_model=DealSummaryResponse,
+    summary="The KPI bar over the Deals list",
+    description=(
+        "Deals per stage (all time), and for the period: companies added, companies "
+        "that became `CUSTOMER`, deals opened and how many of those belong to a "
+        "company with a `CLEAR` background check, and the mean days from opening "
+        "to handover. The period is `[from, to)`; omitted, the last 30 days.\n\n"
+        "There is no open value: a deal carries no amount until the PO/invoice "
+        "work lands. DEVELOPER gets `deals_opened_checks_clear` as `null` "
+        "(decision D8)."
+    ),
+    responses={
+        401: {"description": "Unauthorized"},
+        403: {"description": "CRM read role required"},
+        422: {"description": "`from` is not before `to`"},
+    },
+)
+async def deal_summary(
+    current_user: Annotated[User, Depends(_READER)],
+    period_from: Annotated[datetime | None, Query(alias="from")] = None,
+    period_to: Annotated[datetime | None, Query(alias="to")] = None,
+    db: AsyncSession = Depends(get_db),
+) -> DealSummaryResponse:
+    if period_from is not None and period_to is not None and period_from >= period_to:
+        raise ValidationError("`from` must be before `to`.")
+    view = await DealQueueService(db).summary(period_start=period_from, period_end=period_to)
+    return DealSummaryResponse.from_view(view, current_user)
 
 
 @router.get(

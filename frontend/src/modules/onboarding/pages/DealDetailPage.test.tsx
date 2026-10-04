@@ -177,6 +177,16 @@ describe('DealDetailPage — the server decides what may happen next', () => {
     expect(screen.queryByText(/Not ready to hand over/)).not.toBeInTheDocument();
   });
 
+  it('gives a FINANCER no stage, buyer or upload controls — it reads, and decides later', async () => {
+    signedInAs('FINANCER');
+    renderPage();
+
+    expect(await screen.findByText('Rotterdam shipment, March')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Withdraw' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Edit buyer' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Upload a document' })).not.toBeInTheDocument();
+  });
+
   it('gives a DEVELOPER no stage controls at all', async () => {
     signedInAs('DEVELOPER');
     renderPage();
@@ -226,6 +236,13 @@ describe('DealDetailPage — buyer checks', () => {
     expect(await screen.findByText('Rotterdam shipment, March')).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Buyer checks' })).not.toBeInTheDocument();
     expect(listVerificationResults).not.toHaveBeenCalled();
+  });
+
+  it('shows them to FINANCER, whose underwriting view needs them', async () => {
+    signedInAs('FINANCER');
+    renderPage();
+
+    expect(await screen.findByRole('heading', { name: 'Buyer checks' })).toBeInTheDocument();
   });
 
   it('has nothing to show before a buyer is recorded', async () => {

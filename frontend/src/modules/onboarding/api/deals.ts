@@ -21,6 +21,9 @@ import type {
   Deal,
   DealList,
   DealListParams,
+  DealQueue,
+  DealQueueParams,
+  DealSummary,
   OpenDealRequest,
   SetDealBuyerRequest,
   TransitionDealStageRequest,
@@ -58,6 +61,33 @@ export function listCompanyDeals(
   return apiRequest<DealList>(
     `/onboarding/exporters/${companyId}/deals?${query.toString()}`,
   );
+}
+
+/**
+ * Every company's deals — the Deals list. Filtering, search, sorting and the
+ * per-stage tab counts all happen on the server.
+ */
+export function listDeals(params: DealQueueParams = {}): Promise<DealQueue> {
+  const query = new URLSearchParams();
+  for (const stage of params.stages ?? []) query.append('stage', stage);
+  if (params.q) query.set('q', params.q);
+  if (params.companyId) query.set('company_id', params.companyId);
+  if (params.openedFrom) query.set('opened_from', params.openedFrom);
+  if (params.openedTo) query.set('opened_to', params.openedTo);
+  if (params.sort) query.set('sort', params.sort);
+  if (params.order) query.set('order', params.order);
+  query.set('limit', String(params.limit ?? 50));
+  query.set('offset', String(params.offset ?? 0));
+  return apiRequest<DealQueue>(`/onboarding/deals?${query.toString()}`);
+}
+
+/** The KPI bar over the Deals list; the last 30 days unless a period is given. */
+export function getDealSummary(period: { from?: string; to?: string } = {}): Promise<DealSummary> {
+  const query = new URLSearchParams();
+  if (period.from) query.set('from', period.from);
+  if (period.to) query.set('to', period.to);
+  const suffix = query.toString() ? `?${query.toString()}` : '';
+  return apiRequest<DealSummary>(`/onboarding/deals/summary${suffix}`);
 }
 
 /**

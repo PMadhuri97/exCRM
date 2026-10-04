@@ -56,6 +56,12 @@ router = APIRouter(tags=["Exporter CRM"])
 #: Compliance work by internal staff (architecture §3.7). DEVELOPER is absent (D8).
 _STAFF = require_role(UserRole.OPERATIONS, UserRole.COMPLIANCE, UserRole.ADMIN)
 
+#: Reads an underwriting view needs: staff, and FINANCER (underwriter and
+#: financier, one role). FINANCER reads only; every write keeps its own gate.
+_UNDERWRITING_READER = require_role(
+    UserRole.OPERATIONS, UserRole.COMPLIANCE, UserRole.ADMIN, UserRole.FINANCER
+)
+
 
 @router.get(
     "/exporters/{company_id}/background-check",
@@ -71,14 +77,14 @@ _STAFF = require_role(UserRole.OPERATIONS, UserRole.COMPLIANCE, UserRole.ADMIN)
     ),
     responses={
         401: {"description": "Unauthorized"},
-        403: {"description": "OPERATIONS, COMPLIANCE or ADMIN role required"},
+        403: {"description": "OPERATIONS, COMPLIANCE, ADMIN or FINANCER role required"},
         404: {"description": "Company not found"},
     },
 )
 async def get_background_check(
     company_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    user: Annotated[User, Depends(_STAFF)],
+    user: Annotated[User, Depends(_UNDERWRITING_READER)],
 ) -> BackgroundCheckResponse:
     standing = await BackgroundCheckReader(db).standing(company_id)
     current = BackgroundCheckState(standing.value)
@@ -184,14 +190,14 @@ async def record_background_check_decision(
     ),
     responses={
         401: {"description": "Unauthorized"},
-        403: {"description": "OPERATIONS, COMPLIANCE or ADMIN role required"},
+        403: {"description": "OPERATIONS, COMPLIANCE, ADMIN or FINANCER role required"},
         404: {"description": "Company not found"},
     },
 )
 async def list_background_check_decisions(
     company_id: uuid.UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
-    user: Annotated[User, Depends(_STAFF)],
+    user: Annotated[User, Depends(_UNDERWRITING_READER)],
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> BackgroundCheckDecisionListResponse:

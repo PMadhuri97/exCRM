@@ -57,7 +57,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 
 import structlog
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.onboarding.application.background_check_reader import current_background_check
@@ -73,6 +73,7 @@ from app.modules.onboarding.domain.entities.deal import Deal
 from app.modules.onboarding.domain.entities.deal_buyer import DealBuyer
 from app.modules.onboarding.domain.entities.deal_enums import DealStage
 from app.modules.onboarding.domain.entities.exporter_profile import ExporterProfile
+from app.modules.onboarding.domain.entities.purchase_order import Invoice, PurchaseOrder
 from app.modules.onboarding.events.publisher import OnboardingEventPublisher
 from app.modules.onboarding.exceptions import (
     DealBuyerRequiredError,
@@ -537,7 +538,8 @@ class DealService:
         ``"; "`` — or ``None`` if it may.
 
         Assumption A5: the company's journey is ``CUSTOMER`` **and** its background
-        check is ``CLEAR``. Both are now real: Developer 4A's migration 0015 landed
+        check is ``CLEAR``. Since build prompt chunk 2, the deal must also have its
+        purchase order with at least one invoice. Both are now real: Developer 4A's migration 0015 landed
         and ``read_background_check`` calls their published helper, so a company that
         has never been checked reads ``NOT_STARTED`` — a fact, not an absence — and
         "not ``CLEAR``" is never treated as "clear".
@@ -585,6 +587,23 @@ class DealService:
         background_check = read_background_check(company)
         if background_check != "CLEAR":
             unmet.append(f"the background check is {background_check}, not CLEAR")
+
+        # Build prompt chunk 2 (settled 30 September 2026): a deal is backed by
+        # its purchase order and at least one invoice, and is not handed over
+        # without them — they are what the lending team is lending against.
+        invoices = await self._db.scalar(
+            select(func.count(Invoice.id))
+            .select_from(PurchaseOrder)
+            .outerjoin(Invoice, Invoice.purchase_order_id == PurchaseOrder.id)
+            .where(PurchaseOrder.deal_id == deal.id)
+        )
+        has_po = await self._db.scalar(
+            select(func.count()).select_from(PurchaseOrder).where(PurchaseOrder.deal_id == deal.id)
+        )
+        if not has_po:
+            unmet.append("there is no purchase order")
+        elif not invoices:
+            unmet.append("the purchase order has no invoice")
         return "; ".join(unmet) or None
 
     # ── Internals ────────────────────────────────────────────────────────────

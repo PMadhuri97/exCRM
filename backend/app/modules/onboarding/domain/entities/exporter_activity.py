@@ -24,7 +24,17 @@ from __future__ import annotations
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, Enum, ForeignKey, Index, String, Text, text
+from sqlalchemy import (
+    CheckConstraint,
+    DateTime,
+    Enum,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    text,
+)
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -44,6 +54,22 @@ class ExporterActivity(AppendOnlyModel):
             "actor_id",
             "due_at",
             postgresql_where=text("due_at IS NOT NULL"),
+        ),
+        # Migration 0025: the call fields belong to calls only.
+        CheckConstraint(
+            "(activity_type = 'CALL'"
+            " AND (call_direction IS NULL OR call_direction IN ('OUTBOUND', 'INBOUND'))"
+            " AND (call_result IS NULL OR call_result IN ('CONNECTED', 'NO_ANSWER', 'VOICEMAIL',"
+            " 'BUSY', 'WRONG_NUMBER', 'CALL_BACK_REQUESTED'))"
+            " AND (call_duration_seconds IS NULL OR call_duration_seconds >= 0))"
+            " OR (activity_type <> 'CALL' AND call_direction IS NULL AND call_result IS NULL"
+            " AND call_duration_seconds IS NULL AND contact_id IS NULL)",
+            name="ck_exporter_activity_call_fields",
+        ),
+        Index(
+            "ix_exporter_activity_contact_id",
+            "contact_id",
+            postgresql_where=text("contact_id IS NOT NULL"),
         ),
         {"schema": SCHEMA},
     )
@@ -69,6 +95,21 @@ class ExporterActivity(AppendOnlyModel):
     actor_id: Mapped[str] = mapped_column(String(255), nullable=False)
     occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    #: Migration 0025 — how a call went (Centrex §6). Empty on every other activity,
+    #: and on calls logged before the call pop-up existed.
+    call_direction: Mapped[str | None] = mapped_column(String(8), nullable=True)
+    call_result: Mapped[str | None] = mapped_column(String(24), nullable=True)
+    call_duration_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    #: Who was called. Contacts are never deleted, so `RESTRICT` never bites.
+    contact_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey(
+            f"{SCHEMA}.exporter_contact.id",
+            name="fk_exporter_activity_contact_id",
+            ondelete="RESTRICT",
+        ),
+        nullable=True,
+    )
 
 
 __all__ = ["ExporterActivity"]

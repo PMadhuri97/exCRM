@@ -14,12 +14,17 @@ list of deals costs two statements rather than one per row.
 from __future__ import annotations
 
 import uuid
+from datetime import datetime
 
-from sqlalchemy import Select, func, select
+from sqlalchemy import Row, Select, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.modules.onboarding.domain.deal_views import DealQueueSort
 from app.modules.onboarding.domain.entities.deal import Deal
+from app.modules.onboarding.domain.entities.deal_buyer import DealBuyer
 from app.modules.onboarding.domain.entities.deal_enums import DealStage
+from app.modules.onboarding.domain.entities.exporter_profile import ExporterProfile
+from app.modules.onboarding.domain.entities.purchase_order import Invoice, PurchaseOrder
 from app.platform.database.adapters.repository import BaseRepository
 
 
@@ -89,3 +94,137 @@ class DealRepository(BaseRepository[Deal]):
             select(func.count()).select_from(Deal).where(Deal.company_id == company_id)
         )
         return int(total or 0)
+
+    # ── The cross-company queue (the Deals list) ─────────────────────────
+
+    def _queue(
+        self,
+        *,
+        search: str | None,
+        company_id: uuid.UUID | None,
+        opened_from: datetime | None = None,
+        opened_before: datetime | None = None,
+    ) -> Select:
+        """Every deal with its company's name, journey and background check and its
+        buyer's name and country — one statement, however many rows.
+
+        ``search`` matches the deal's reference, the company's name or the buyer's
+        name, case-insensitively and literally (its own ``%`` and ``_`` are not
+        wildcards). No identifier is searchable here: an exact-identifier match is
+        an existence oracle, which is why that search is COMPLIANCE/ADMIN-only on
+        the company list.
+        """
+        invoices = (
+            select(
+                Invoice.purchase_order_id,
+                func.count(Invoice.id).label("count"),
+                func.sum(Invoice.amount).label("total"),
+            )
+            .group_by(Invoice.purchase_order_id)
+            .subquery()
+        )
+        statement = (
+            select(
+                Deal,
+                ExporterProfile.name,
+                ExporterProfile.journey,
+                ExporterProfile.background_check,
+                DealBuyer.name,
+                DealBuyer.country,
+                PurchaseOrder.currency,
+                PurchaseOrder.total_amount,
+                invoices.c.count,
+                invoices.c.total,
+            )
+            .join(ExporterProfile, ExporterProfile.customer_id == Deal.company_id)
+            .outerjoin(DealBuyer, DealBuyer.deal_id == Deal.id)
+            # One PO per deal (`uq_purchase_order_deal_id`), and the invoices are
+            # pre-aggregated per PO — neither join multiplies a deal's row.
+            .outerjoin(PurchaseOrder, PurchaseOrder.deal_id == Deal.id)
+            .outerjoin(invoices, invoices.c.purchase_order_id == PurchaseOrder.id)
+        )
+        if company_id is not None:
+            statement = statement.where(Deal.company_id == company_id)
+        if opened_from is not None:
+            statement = statement.where(Deal.created_at >= opened_from)
+        if opened_before is not None:
+            statement = statement.where(Deal.created_at < opened_before)
+        if search:
+            pattern = f"%{_escape_like(search)}%"
+            statement = statement.where(
+                or_(
+                    Deal.reference.ilike(pattern, escape="\\"),
+                    ExporterProfile.name.ilike(pattern, escape="\\"),
+                    DealBuyer.name.ilike(pattern, escape="\\"),
+                )
+            )
+        return statement
+
+    async def list_queue(
+        self,
+        *,
+        stages: tuple[DealStage, ...] | None = None,
+        search: str | None = None,
+        company_id: uuid.UUID | None = None,
+        opened_from: datetime | None = None,
+        opened_before: datetime | None = None,
+        sort: DealQueueSort = DealQueueSort.UPDATED_AT,
+        descending: bool = True,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> tuple[list[Row], int, dict[DealStage, int]]:
+        """A page of the queue, the total behind it, and the count per stage.
+
+        The per-stage counts ignore ``stages`` and honour everything else, so a
+        stage tab can say how many rows it would show before it is picked.
+        """
+        base = self._queue(
+            search=search,
+            company_id=company_id,
+            opened_from=opened_from,
+            opened_before=opened_before,
+        )
+
+        filtered = base.with_only_columns(Deal.stage).subquery()
+        counted = await self.session.execute(
+            select(filtered.c.stage, func.count()).group_by(filtered.c.stage)
+        )
+        stage_counts = {stage: 0 for stage in DealStage}
+        for stage, count in counted.all():
+            stage_counts[DealStage(stage)] = int(count)
+
+        statement = base.where(Deal.stage.in_(stages)) if stages else base
+        total = sum(stage_counts[stage] for stage in stages) if stages else sum(
+            stage_counts.values()
+        )
+
+        column = {
+            DealQueueSort.CREATED_AT: Deal.created_at,
+            DealQueueSort.UPDATED_AT: Deal.updated_at,
+            DealQueueSort.REFERENCE: func.lower(Deal.reference),
+            DealQueueSort.COMPANY_NAME: func.lower(ExporterProfile.name),
+            DealQueueSort.STAGE: Deal.stage,
+        }[sort]
+        order = column.desc().nulls_last() if descending else column.asc().nulls_last()
+        # `Deal.id` last, so equal keys still page in a stable order.
+        result = await self.session.execute(
+            statement.order_by(order, Deal.id).limit(limit).offset(offset)
+        )
+        return list(result.all()), total, stage_counts
+
+    async def count_by_stage(self) -> dict[DealStage, int]:
+        """Every deal, counted per stage — the KPI bar's stage figures."""
+        result = await self.session.execute(
+            select(Deal.stage, func.count()).group_by(Deal.stage)
+        )
+        counts = {stage: 0 for stage in DealStage}
+        for stage, count in result.all():
+            counts[DealStage(stage)] = int(count)
+        return counts
+
+
+def _escape_like(value: str) -> str:
+    """`value` for a LIKE pattern with a backslash as the escape character, so its
+    own `%`, `_` and backslashes are matched literally — the same rule as
+    `exporter_profile_repository._escape_like`."""
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")

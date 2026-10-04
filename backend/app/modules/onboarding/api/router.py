@@ -13,7 +13,9 @@ from app.modules.onboarding.api.engagement_router import router as engagement_ro
 from app.modules.onboarding.api.exporter_router import router as exporter_router
 from app.modules.onboarding.api.follow_up_router import router as follow_up_router
 from app.modules.onboarding.api.history_router import router as history_router
+from app.modules.onboarding.api.purchase_order_router import router as purchase_order_router
 from app.modules.onboarding.api.qualification_router import router as qualification_router
+from app.modules.onboarding.api.saved_list_router import router as saved_list_router
 from app.modules.onboarding.api.schemas.case import (
     CaseResponse,
     CaseTransitionListResponse,
@@ -102,6 +104,11 @@ router.include_router(follow_up_router)
 # Deals and buyers (L3-05, L3-06) — Developer 3B. Absolute paths (`/deals/...`),
 # like the deal history route above: a deal is not a company sub-resource.
 router.include_router(deal_router)
+# A deal's purchase order and invoices (build prompt chunk 2). Under
+# `/deals/{deal_id}/purchase-order`, after the deal routes.
+router.include_router(purchase_order_router)
+# Saved lists over the Deals and Companies lists (build prompt chunk 3).
+router.include_router(saved_list_router)
 # Documents and storage (L3-07 … L3-10) — Developer 3B. Absolute paths too,
 # because documents hang off deals as well as companies.
 router.include_router(document_router)
@@ -391,8 +398,9 @@ async def sumsub_webhook(
 # `domain.workflow_dependencies.VerificationAdapter` and
 # `application.verification_service.VerificationService`.
 #
-# Owner: Developer 4B (4b-task.md §5.8, §9). Roles unchanged: writes COMPLIANCE/ADMIN,
-# reads OPERATIONS/COMPLIANCE/ADMIN; DEVELOPER is refused (D8, lead: no widening). The
+# Owner: Developer 4B (4b-task.md §5.8, §9). Writes COMPLIANCE/ADMIN; reads
+# OPERATIONS/COMPLIANCE/ADMIN and FINANCER (auth_0005 — underwriting reads results, and
+# decides nothing here); DEVELOPER is refused (D8, lead: no widening). The
 # actor and reviewer always come from the session, never the body.
 
 #: Who may record a result or review one. The same tuple gates the two write routes
@@ -400,6 +408,12 @@ async def sumsub_webhook(
 #: drift.
 _VERIFICATION_DECISION_ROLES = (UserRole.COMPLIANCE, UserRole.ADMIN)
 _VERIFICATION_DECIDER = require_role(*_VERIFICATION_DECISION_ROLES)
+
+#: Reads an underwriting view needs: staff, and FINANCER (underwriter and
+#: financier, one role). FINANCER reads only; every write keeps its own gate.
+_UNDERWRITING_READER = require_role(
+    UserRole.OPERATIONS, UserRole.COMPLIANCE, UserRole.ADMIN, UserRole.FINANCER
+)
 
 
 @router.post(
@@ -461,13 +475,13 @@ async def trigger_verification(
     responses={
         200: {"model": VerificationResultResponse},
         401: {"description": "Unauthorized"},
-        403: {"description": "OPERATIONS, COMPLIANCE or ADMIN role required"},
+        403: {"description": "OPERATIONS, COMPLIANCE, ADMIN or FINANCER role required"},
         404: {"description": "Verification result not found"},
     },
 )
 async def get_verification_result(
     verification_result_id: uuid.UUID,
-    current_user: Annotated[User, Depends(_STAFF)],
+    current_user: Annotated[User, Depends(_UNDERWRITING_READER)],
     db: AsyncSession = Depends(get_db),
 ) -> VerificationResultResponse:
     try:
@@ -493,13 +507,13 @@ async def get_verification_result(
     responses={
         200: {"model": VerificationResultListResponse},
         401: {"description": "Unauthorized"},
-        403: {"description": "OPERATIONS, COMPLIANCE or ADMIN role required"},
+        403: {"description": "OPERATIONS, COMPLIANCE, ADMIN or FINANCER role required"},
     },
 )
 async def list_verification_results(
     entity_type: VerificationEntityType,
     entity_reference: uuid.UUID,
-    current_user: Annotated[User, Depends(_STAFF)],
+    current_user: Annotated[User, Depends(_UNDERWRITING_READER)],
     db: AsyncSession = Depends(get_db),
 ) -> VerificationResultListResponse:
     service = VerificationService(db)

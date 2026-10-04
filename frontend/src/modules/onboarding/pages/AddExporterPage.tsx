@@ -20,6 +20,7 @@ import { ApiError } from '@/lib/api/errors';
 
 import { DuplicatePanMessage, duplicatePanHolder } from '../components';
 import { useCreateExporterLead } from '../hooks';
+import { EXPORTER_SOURCE_LABEL } from '../constants';
 import { paths } from '../paths';
 
 const addCompanySchema = z.object({
@@ -52,17 +53,7 @@ const addCompanySchema = z.object({
 
 type AddCompanyFormValues = z.infer<typeof addCompanySchema>;
 
-const SOURCE_LABEL: Record<AddCompanyFormValues['source'], string> = {
-  MANUAL: 'Manual entry',
-  SALES: 'Sales',
-  REFERRAL: 'Referral',
-  RXIL: 'RXIL',
-  PARTNER: 'Partner',
-  API: 'API',
-  BROKER: 'Broker',
-  EVENT: 'Event',
-  EXISTING_CUSTOMER: 'Existing customer',
-};
+const SOURCE_LABEL: Record<AddCompanyFormValues['source'], string> = EXPORTER_SOURCE_LABEL;
 
 function emptyToUndefined(value: string | undefined): string | undefined {
   return value === '' ? undefined : value;

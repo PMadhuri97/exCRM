@@ -54,6 +54,12 @@ _COMPLIANCE_OR_ADMIN = require_role(*_DECISION_ROLES)
 # Routine CRM reads by internal staff.
 _STAFF = require_role(UserRole.OPERATIONS, UserRole.COMPLIANCE, UserRole.ADMIN)
 
+#: Reads an underwriting view needs: staff, and FINANCER (underwriter and
+#: financier, one role). FINANCER reads only; every write keeps its own gate.
+_UNDERWRITING_READER = require_role(
+    UserRole.OPERATIONS, UserRole.COMPLIANCE, UserRole.ADMIN, UserRole.FINANCER
+)
+
 _CATALOGUE = [ScreeningCatalogueItemResponse.model_validate(i) for i in SCREENING_CATALOGUE_ITEMS]
 
 
@@ -69,13 +75,13 @@ _CATALOGUE = [ScreeningCatalogueItemResponse.model_validate(i) for i in SCREENIN
     ),
     responses={
         401: {"description": "Unauthorized"},
-        403: {"description": "OPERATIONS, COMPLIANCE or ADMIN role required"},
+        403: {"description": "OPERATIONS, COMPLIANCE, ADMIN or FINANCER role required"},
         404: {"description": "Company not found"},
     },
 )
 async def list_screening_review(
     customer_id: uuid.UUID,
-    current_user: Annotated[User, Depends(_STAFF)],
+    current_user: Annotated[User, Depends(_UNDERWRITING_READER)],
     db: AsyncSession = Depends(get_db),
 ) -> ScreeningReviewListResponse:
     items = await ScreeningReviewService(db).list_review_items(customer_id)
@@ -100,7 +106,7 @@ async def list_screening_review(
     ),
     responses={
         401: {"description": "Unauthorized"},
-        403: {"description": "OPERATIONS, COMPLIANCE or ADMIN role required"},
+        403: {"description": "OPERATIONS, COMPLIANCE, ADMIN or FINANCER role required"},
         404: {"description": "Company not found"},
         422: {"description": "Unknown checklist item"},
     },
@@ -108,7 +114,7 @@ async def list_screening_review(
 async def list_screening_review_item_history(
     customer_id: uuid.UUID,
     item_key: str,
-    current_user: Annotated[User, Depends(_STAFF)],
+    current_user: Annotated[User, Depends(_UNDERWRITING_READER)],
     db: AsyncSession = Depends(get_db),
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
@@ -162,7 +168,7 @@ async def update_screening_review(
     summary="List bank-linked suspicious-activity findings",
     responses={
         401: {"description": "Unauthorized"},
-        403: {"description": "OPERATIONS, COMPLIANCE or ADMIN role required"},
+        403: {"description": "OPERATIONS, COMPLIANCE, ADMIN or FINANCER role required"},
     },
     description=(
         "No bank-monitoring provider feed is connected: the response says so "
@@ -172,7 +178,7 @@ async def update_screening_review(
 )
 async def get_bank_activity(
     customer_id: uuid.UUID,
-    current_user: Annotated[User, Depends(_STAFF)],
+    current_user: Annotated[User, Depends(_UNDERWRITING_READER)],
     db: AsyncSession = Depends(get_db),
 ) -> BankActivityResponse:
     findings = await ScreeningReviewService(db).list_bank_findings(customer_id)

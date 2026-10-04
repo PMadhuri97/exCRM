@@ -43,9 +43,13 @@ _ADMIN = require_role(UserRole.ADMIN)
 #: Recording results and outcomes.
 _STAFF = require_role(UserRole.OPERATIONS, UserRole.COMPLIANCE, UserRole.ADMIN)
 _RECORDING_ROLES = frozenset({UserRole.OPERATIONS, UserRole.COMPLIANCE, UserRole.ADMIN})
-#: Reading. DEVELOPER is read-only across the CRM.
+#: Reading. DEVELOPER and FINANCER are read-only across the CRM.
 _READER = require_role(
-    UserRole.OPERATIONS, UserRole.COMPLIANCE, UserRole.ADMIN, UserRole.DEVELOPER
+    UserRole.OPERATIONS,
+    UserRole.COMPLIANCE,
+    UserRole.ADMIN,
+    UserRole.DEVELOPER,
+    UserRole.FINANCER,
 )
 
 _401 = {"description": "Unauthorized"}

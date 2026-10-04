@@ -36,3 +36,11 @@ export function humanize(value: string): string {
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ');
 }
+
+/** "USD 125,000.00" — the currency code first, so two currencies never look
+ * alike. The amount arrives as the server's decimal string (money is never a
+ * float on the wire); it is only formatted here, never summed. */
+export function formatMoney(amount: string | number, currency: string): string {
+  const value = typeof amount === 'string' ? Number(amount) : amount;
+  return `${currency} ${value.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}

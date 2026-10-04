@@ -25,6 +25,24 @@ class ExporterActivityType(str, enum.Enum):
     FOLLOW_UP = "FOLLOW_UP"
 
 
+class CallDirection(str, enum.Enum):
+    """Who rang whom — Centrex §6's "call type" (migration 0025)."""
+
+    OUTBOUND = "OUTBOUND"
+    INBOUND = "INBOUND"
+
+
+class CallResult(str, enum.Enum):
+    """How a call went — Centrex §6's "call result" (migration 0025)."""
+
+    CONNECTED = "CONNECTED"
+    NO_ANSWER = "NO_ANSWER"
+    VOICEMAIL = "VOICEMAIL"
+    BUSY = "BUSY"
+    WRONG_NUMBER = "WRONG_NUMBER"
+    CALL_BACK_REQUESTED = "CALL_BACK_REQUESTED"
+
+
 class ExporterConversation(str, enum.Enum):
     """How the sales conversation is going — architecture §3.3, and
     `docs/contracts/engagement.md` §1.

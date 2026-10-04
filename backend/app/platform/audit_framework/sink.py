@@ -7,6 +7,7 @@ import structlog
 
 from app.platform.audit_framework.config import (
     AUDIT_BUCKET_NAME,
+    AUDIT_SINK_GCP_ENABLED,
     GCP_PROJECT_ID,
     LOG_SINK_LOGGER_NAME,
     SERVICE_ACCOUNT_EMAIL,
@@ -40,6 +41,12 @@ class AuditSinkLogger:
         self._init_gcp_logger()
 
     def _init_gcp_logger(self) -> None:
+        if not AUDIT_SINK_GCP_ENABLED:
+            # Paused (`AUDIT_SINK_GCP_ENABLED`): nothing is sent to Google; entries
+            # still reach the application log below.
+            logger.info("gcp_audit_sink_paused")
+            self._gcp_logger = None
+            return
         try:
             from google.cloud import logging as google_logging
 

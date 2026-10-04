@@ -1,15 +1,16 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { listCompanyDeals } from '../../api';
-import type { DealListItem } from '../../types';
+import { listCompanyDeals, listDeals } from '../../api';
+import type { DealListItem, DealQueueItem } from '../../types';
 
 import { DealsPanel } from './DealsPanel';
 
 vi.mock('../../api', () => ({
   listCompanyDeals: vi.fn(),
+  listDeals: vi.fn(),
   openDeal: vi.fn(),
 }));
 
@@ -39,8 +40,38 @@ function renderPanel(isStaff = true) {
   );
 }
 
+/** The rows now come from the shared Deals read, scoped to the company; the
+ * company's own deal route still says whether a deal may be opened. Each test sets
+ * the company's deals once, and the queue serves the same ones. */
+function asQueueItem(deal: DealListItem): DealQueueItem {
+  return {
+    ...deal,
+    company_name: 'Acme Exports',
+    company_journey: 'PROSPECT',
+    company_background_check: 'NOT_STARTED',
+    buyer_country: null,
+    handed_over_at: null,
+    po_currency: null,
+    po_total: null,
+    invoice_count: 0,
+    invoiced_total: null,
+  };
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.mocked(listDeals).mockImplementation(async (params) => {
+    expect(params?.companyId).toBe(COMPANY_ID);
+    const company = await vi.mocked(listCompanyDeals).getMockImplementation()?.(COMPANY_ID, {});
+    const own = company ?? (await vi.mocked(listCompanyDeals)(COMPANY_ID, {}));
+    return {
+      deals: own.deals.map(asQueueItem),
+      total: own.total,
+      limit: 100,
+      offset: 0,
+      stage_counts: { OPEN: own.total, GATHERING_PAPERWORK: 0, HANDED_OVER: 0, WITHDRAWN: 0 },
+    };
+  });
   vi.mocked(listCompanyDeals).mockResolvedValue({
     deals: [dealRow()],
     total: 1,
@@ -56,9 +87,10 @@ describe('DealsPanel', () => {
 
     await waitFor(() => expect(listCompanyDeals).toHaveBeenCalledWith(COMPANY_ID, {}));
     expect(await screen.findByText('Rotterdam shipment, March')).toBeInTheDocument();
-    expect(screen.getByText('Open')).toBeInTheDocument();
+    // The stage chip, inside the row (the table's arrow column is also named "Open").
+    expect(within(screen.getByTestId('deal-row')).getByText('Open')).toBeInTheDocument();
     // A deal with no buyer yet says so rather than showing an empty cell.
-    expect(screen.getByText(/No buyer recorded yet/)).toBeInTheDocument();
+    expect(screen.getByText('Not recorded')).toBeInTheDocument();
   });
 
   it('shows an honest empty state, and invites staff to open the first deal', async () => {
@@ -123,10 +155,8 @@ describe('DealsPanel', () => {
   it('links each deal to its own page', async () => {
     renderPanel();
 
-    // The whole row is the link, so its name carries the buyer line too.
-    const link = await screen.findByRole('link', {
-      name: /Rotterdam shipment, March/,
-    });
+    // The reference is the link (the row's arrow opens the same page).
+    const link = await screen.findByRole('link', { name: 'Rotterdam shipment, March' });
     expect(link).toHaveAttribute('href', '/deals/dddddddd-dddd-4ddd-8ddd-dddddddddddd');
   });
 });

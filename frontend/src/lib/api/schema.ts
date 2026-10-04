@@ -714,6 +714,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/onboarding/exporters/{customer_id}/calls": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Log a call — and optionally update the status and schedule a follow-up
+         * @description Centrex §6's call pop-up in one save: the call (direction, result, duration, notes, the contact), an optional conversation move (`status`, with the same rules as `PUT /conversation`), and an optional follow-up (`follow_up_at`, in the future) on the caller's Follow-ups list. All of it commits together or not at all: a refused status move logs no call.
+         */
+        post: operations["log_call_api_v1_onboarding_exporters__customer_id__calls_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/onboarding/exporters/activities/pending": {
         parameters: {
             query?: never;
@@ -1135,6 +1155,52 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/onboarding/deals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List deals across every company (the Deals list)
+         * @description The operational queue over every company's deals (Centrex §4/§5). `stage` may be repeated. `q` matches the deal reference, the company name or the buyer name, case-insensitively; no identifier is searchable here. `company_id` narrows to one company, so the company page can reuse the same table. `opened_from` / `opened_to` are calendar days (UTC), both inclusive.
+         *
+         *     `stage_counts` counts the rows per stage honouring every filter **except** `stage`, so each stage tab can show its live count.
+         *
+         *     DEVELOPER reads the list without the company's background check (decision D8).
+         */
+        get: operations["list_deals_api_v1_onboarding_deals_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/onboarding/deals/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The KPI bar over the Deals list
+         * @description Deals per stage (all time), and for the period: companies added, companies that became `CUSTOMER`, deals opened and how many of those belong to a company with a `CLEAR` background check, and the mean days from opening to handover. The period is `[from, to)`; omitted, the last 30 days.
+         *
+         *     There is no open value: a deal carries no amount until the PO/invoice work lands. DEVELOPER gets `deals_opened_checks_clear` as `null` (decision D8).
+         */
+        get: operations["deal_summary_api_v1_onboarding_deals_summary_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/onboarding/deals/{deal_id}": {
         parameters: {
             query?: never;
@@ -1196,6 +1262,127 @@ export interface paths {
         put: operations["set_deal_buyer_api_v1_onboarding_deals__deal_id__buyer_put"];
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/onboarding/deals/{deal_id}/purchase-order": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The deal's purchase order and invoices
+         * @description `purchase_order` is `null` until one is recorded. `can_edit` says whether this caller may record or change it now.
+         */
+        get: operations["get_purchase_order_api_v1_onboarding_deals__deal_id__purchase_order_get"];
+        /**
+         * Record or correct the deal's purchase order
+         * @description One PO per deal, so `PUT`. `source_document_id`, when sent, must be one of this deal's documents. The currency cannot change while invoices exist.
+         */
+        put: operations["set_purchase_order_api_v1_onboarding_deals__deal_id__purchase_order_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/onboarding/deals/{deal_id}/purchase-order/invoices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Add an invoice to the deal's purchase order */
+        post: operations["add_invoice_api_v1_onboarding_deals__deal_id__purchase_order_invoices_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/onboarding/deals/{deal_id}/purchase-order/invoices/{invoice_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Correct an invoice */
+        put: operations["update_invoice_api_v1_onboarding_deals__deal_id__purchase_order_invoices__invoice_id__put"];
+        post?: never;
+        /**
+         * Remove an invoice
+         * @description Recorded in the deal's history; the invoice row itself is gone.
+         */
+        delete: operations["remove_invoice_api_v1_onboarding_deals__deal_id__purchase_order_invoices__invoice_id__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/onboarding/deals/{deal_id}/purchase-order/suggestions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Fields read from an uploaded PO or invoice — suggestions to confirm
+         * @description Pluggable and optional: with no extractor configured, `extractor` is `null` and `fields` is empty, so the form starts blank. Nothing is saved.
+         */
+        get: operations["suggest_fields_api_v1_onboarding_deals__deal_id__purchase_order_suggestions_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/onboarding/saved-lists": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Every saved list, or every list of one kind
+         * @description Visible to every CRM reader. `can_create` says whether this caller may build one; each list's `can_edit` whether this caller may change it.
+         */
+        get: operations["list_saved_lists_api_v1_onboarding_saved_lists_get"];
+        put?: never;
+        /** Build a saved list */
+        post: operations["create_saved_list_api_v1_onboarding_saved_lists_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/onboarding/saved-lists/{list_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Change a saved list — its creator, or an admin */
+        put: operations["update_saved_list_api_v1_onboarding_saved_lists__list_id__put"];
+        post?: never;
+        /** Delete a saved list — its creator, or an admin */
+        delete: operations["delete_saved_list_api_v1_onboarding_saved_lists__list_id__delete"];
         options?: never;
         head?: never;
         patch?: never;
@@ -2099,6 +2286,30 @@ export interface components {
             /** Tax Id */
             tax_id: string | null;
         };
+        /**
+         * CallDirection
+         * @description Who rang whom — Centrex §6's "call type" (migration 0025).
+         * @enum {string}
+         */
+        CallDirection: "OUTBOUND" | "INBOUND";
+        /**
+         * CallResult
+         * @description How a call went — Centrex §6's "call result" (migration 0025).
+         * @enum {string}
+         */
+        CallResult: "CONNECTED" | "NO_ANSWER" | "VOICEMAIL" | "BUSY" | "WRONG_NUMBER" | "CALL_BACK_REQUESTED";
+        /**
+         * CallStatusMove
+         * @description Where the conversation gauge goes after the call — the same rules as
+         *     `PUT /conversation`: NOT_NOW needs a reason and a check-back date.
+         */
+        CallStatusMove: {
+            to: components["schemas"]["ExporterConversation"];
+            /** Reason */
+            reason?: string | null;
+            /** Check Back On */
+            check_back_on?: string | null;
+        };
         /** CaseResponse */
         CaseResponse: {
             /**
@@ -2285,6 +2496,13 @@ export interface components {
          * @enum {string}
          */
         CheckType: "IDENTITY" | "DOCUMENT" | "LIVENESS" | "SANCTIONS" | "PEP" | "ADVERSE_MEDIA" | "WATCHLIST";
+        /**
+         * CompanySort
+         * @description What the company list may be ordered by — a closed set, so a caller can
+         *     never sort on a column the list does not mean to expose.
+         * @enum {string}
+         */
+        CompanySort: "date_added" | "name" | "status_since";
         /**
          * CompleteFollowUpRequest
          * @description Record that a follow-up was dealt with.
@@ -2640,6 +2858,112 @@ export interface components {
              */
             can_open_deal: boolean;
         };
+        /**
+         * DealPaperworkResponse
+         * @description The deal's PO (or `null` — none recorded yet), and whether **this**
+         *     caller may record or change it, so the screen offers only what the server
+         *     would accept (§7.5).
+         */
+        DealPaperworkResponse: {
+            purchase_order: components["schemas"]["PurchaseOrderResponse"] | null;
+            /**
+             * Can Edit
+             * @description OPERATIONS or ADMIN, on a deal that is not handed over or withdrawn.
+             */
+            can_edit: boolean;
+        };
+        /**
+         * DealQueueItemResponse
+         * @description One row of the Deals list — the deal, and enough of its company and buyer
+         *     to triage without opening it (Centrex §5).
+         */
+        DealQueueItemResponse: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Company Id
+             * Format: uuid
+             */
+            company_id: string;
+            /** Company Name */
+            company_name: string | null;
+            /** Company Journey */
+            company_journey: string;
+            /**
+             * Company Background Check
+             * @description The company's background check; `null` for DEVELOPER (decision D8).
+             */
+            company_background_check: string | null;
+            /** Reference */
+            reference: string;
+            stage: components["schemas"]["DealStage"];
+            /** Buyer Name */
+            buyer_name: string | null;
+            /** Buyer Country */
+            buyer_country: string | null;
+            /** Handed Over At */
+            handed_over_at: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /**
+             * Po Currency
+             * @description The PO's currency; `null` before a PO.
+             */
+            po_currency: string | null;
+            /**
+             * Po Total
+             * @description The PO's total; `null` before a PO.
+             */
+            po_total: string | null;
+            /** Invoice Count */
+            invoice_count: number;
+            /**
+             * Invoiced Total
+             * @description The invoices, summed; `null` with none.
+             */
+            invoiced_total: string | null;
+        };
+        /**
+         * DealQueueResponse
+         * @description A page of the Deals list.
+         *
+         *     ``total`` counts every row the filter matches; ``stage_counts`` counts them per
+         *     stage **ignoring the stage filter**, so each stage tab shows its live count.
+         */
+        DealQueueResponse: {
+            /** Deals */
+            deals: components["schemas"]["DealQueueItemResponse"][];
+            /** Total */
+            total: number;
+            /** Limit */
+            limit: number;
+            /** Offset */
+            offset: number;
+            /** Stage Counts */
+            stage_counts: {
+                [key: string]: number;
+            };
+        };
+        /**
+         * DealQueueSort
+         * @description What the cross-company deal queue may be ordered by.
+         *
+         *     A closed set rather than a column name from the request, so a caller can never
+         *     sort on a column this read does not mean to expose.
+         * @enum {string}
+         */
+        DealQueueSort: "created_at" | "updated_at" | "reference" | "company_name" | "stage";
         /** DealResponse */
         DealResponse: {
             /**
@@ -2703,6 +3027,40 @@ export interface components {
             to_stage: components["schemas"]["DealStage"];
             /** Reason Required */
             reason_required: boolean;
+        };
+        /**
+         * DealSummaryResponse
+         * @description The KPI bar over the Deals list. No open value: a deal holds no amount
+         *     until the PO/invoice work lands.
+         */
+        DealSummaryResponse: {
+            /**
+             * Period Start
+             * Format: date-time
+             */
+            period_start: string;
+            /**
+             * Period End
+             * Format: date-time
+             */
+            period_end: string;
+            /** Stage Counts */
+            stage_counts: {
+                [key: string]: number;
+            };
+            /** New Leads */
+            new_leads: number;
+            /** New Customers */
+            new_customers: number;
+            /** Deals Opened */
+            deals_opened: number;
+            /**
+             * Deals Opened Checks Clear
+             * @description Of the deals opened in the period, how many belong to a company whose background check is `CLEAR`; `null` for DEVELOPER (decision D8).
+             */
+            deals_opened_checks_clear: number | null;
+            /** Average Turnaround Days */
+            average_turnaround_days: number | null;
         };
         /**
          * DecidedByKind
@@ -2964,6 +3322,12 @@ export interface components {
              * Format: date-time
              */
             created_at: string;
+            call_direction?: components["schemas"]["CallDirection"] | null;
+            call_result?: components["schemas"]["CallResult"] | null;
+            /** Call Duration Seconds */
+            call_duration_seconds?: number | null;
+            /** Contact Id */
+            contact_id?: string | null;
         };
         /**
          * ExporterActivityType
@@ -3172,6 +3536,23 @@ export interface components {
              * Format: date-time
              */
             updated_at: string;
+            /**
+             * Status Since
+             * @description When the company reached its current journey (time in status).
+             */
+            status_since?: string | null;
+            /** Primary Contact Name */
+            primary_contact_name?: string | null;
+            /**
+             * Primary Contact Email
+             * @description Masked as `a•••@domain` for every role but COMPLIANCE and ADMIN.
+             */
+            primary_contact_email?: string | null;
+            /**
+             * Primary Contact Phone
+             * @description Masked to its last four digits for every role but COMPLIANCE and ADMIN.
+             */
+            primary_contact_phone?: string | null;
         };
         /** ExporterProfileResponse */
         ExporterProfileResponse: {
@@ -3240,6 +3621,18 @@ export interface components {
             limit: number;
             /** Offset */
             offset: number;
+            /**
+             * Total
+             * @description Every company the filter matches, not just this page.
+             */
+            total: number;
+            /**
+             * Journey Counts
+             * @description Companies per journey for every filter **except** `journey`, so each journey tab can show its live count.
+             */
+            journey_counts: {
+                [key: string]: number;
+            };
         };
         /**
          * ExporterSource
@@ -3251,6 +3644,19 @@ export interface components {
          * @enum {string}
          */
         ExporterSource: "MANUAL" | "SALES" | "REFERRAL" | "RXIL" | "PARTNER" | "API" | "BROKER" | "EVENT" | "EXISTING_CUSTOMER";
+        /**
+         * ExtractedFieldsResponse
+         * @description Suggestions read from a document, for a person to confirm. `extractor` is
+         *     `null` when none is configured, and `fields` is then empty.
+         */
+        ExtractedFieldsResponse: {
+            /** Extractor */
+            extractor: string | null;
+            /** Fields */
+            fields: {
+                [key: string]: string;
+            };
+        };
         /**
          * FollowUpCompletionResponse
          * @description A completion, as recorded. Every field comes from the completion row and none
@@ -3601,6 +4007,95 @@ export interface components {
             /** Warnings */
             warnings: components["schemas"]["ReasonResponse"][];
         };
+        /**
+         * InvoiceRequest
+         * @description An invoice against the deal's PO. `currency` may be left out — it is
+         *     the PO's; another is refused.
+         */
+        InvoiceRequest: {
+            /** Invoice Number */
+            invoice_number: string;
+            /**
+             * Invoice Date
+             * Format: date
+             */
+            invoice_date: string;
+            /** Due Date */
+            due_date?: string | null;
+            /** Amount */
+            amount: number | string;
+            /** Currency */
+            currency?: string | null;
+            /** Source Document Id */
+            source_document_id?: string | null;
+        };
+        /** InvoiceResponse */
+        InvoiceResponse: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Purchase Order Id
+             * Format: uuid
+             */
+            purchase_order_id: string;
+            /** Invoice Number */
+            invoice_number: string;
+            /**
+             * Invoice Date
+             * Format: date
+             */
+            invoice_date: string;
+            /** Due Date */
+            due_date: string | null;
+            /** Currency */
+            currency: string;
+            /** Amount */
+            amount: string;
+            /** Source Document Id */
+            source_document_id: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /**
+         * LogCallRequest
+         * @description Centrex §6's call pop-up, in one save: the call, optionally a status move,
+         *     optionally a follow-up. All of it commits together or not at all.
+         */
+        LogCallRequest: {
+            /**
+             * Contact Id
+             * @description One of this company's contacts.
+             */
+            contact_id?: string | null;
+            direction: components["schemas"]["CallDirection"];
+            result: components["schemas"]["CallResult"];
+            /**
+             * Duration Seconds
+             * @default 0
+             */
+            duration_seconds: number;
+            /** Notes */
+            notes?: string | null;
+            status?: components["schemas"]["CallStatusMove"] | null;
+            /**
+             * Follow Up At
+             * @description Must be in the future.
+             */
+            follow_up_at?: string | null;
+            /** Follow Up Subject */
+            follow_up_subject?: string | null;
+        };
         /** LogExporterActivityRequest */
         LogExporterActivityRequest: {
             activity_type: components["schemas"]["ExporterActivityType"];
@@ -3610,6 +4105,13 @@ export interface components {
             notes?: string | null;
             /** Due At */
             due_at?: string | null;
+        };
+        /** LoggedCallResponse */
+        LoggedCallResponse: {
+            call: components["schemas"]["ExporterActivityResponse"];
+            follow_up: components["schemas"]["ExporterActivityResponse"] | null;
+            /** @description The gauge's new value when the call moved it; `null` otherwise. */
+            conversation: components["schemas"]["ExporterConversation"] | null;
         };
         /** LoginRequest */
         LoginRequest: {
@@ -3901,6 +4403,56 @@ export interface components {
             /** Phone */
             phone: string | null;
         };
+        /** PurchaseOrderResponse */
+        PurchaseOrderResponse: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Deal Id
+             * Format: uuid
+             */
+            deal_id: string;
+            /** Po Number */
+            po_number: string;
+            /**
+             * Po Date
+             * Format: date
+             */
+            po_date: string;
+            /** Currency */
+            currency: string;
+            /** Total Amount */
+            total_amount: string;
+            /** Payment Terms */
+            payment_terms: string | null;
+            /** Source Document Id */
+            source_document_id: string | null;
+            /** Invoices */
+            invoices: components["schemas"]["InvoiceResponse"][];
+            /**
+             * Invoiced Amount
+             * @description The invoices, summed.
+             */
+            invoiced_amount: string;
+            /**
+             * Uninvoiced Amount
+             * @description The PO total less its invoices. May be negative — a question for verification.
+             */
+            uninvoiced_amount: string;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
         /**
          * QualificationOutcomeValue
          * @description What a reviewer decides. ``NOT_YET_REVIEWED`` is never decided: it is
@@ -4157,6 +4709,84 @@ export interface components {
             created_at: string;
         };
         /**
+         * SavedListObject
+         * @description Which list a saved list is a view over.
+         * @enum {string}
+         */
+        SavedListObject: "DEALS" | "COMPANIES";
+        /**
+         * SavedListRequest
+         * @description Create or change a saved list. `filters` are checked against `object_type`.
+         */
+        SavedListRequest: {
+            /** Name */
+            name: string;
+            object_type: components["schemas"]["SavedListObject"];
+            /** Filters */
+            filters?: {
+                [key: string]: unknown;
+            };
+            /** Columns */
+            columns?: string[];
+            /** Sort */
+            sort?: string | null;
+            /** Sort Order */
+            sort_order?: ("asc" | "desc") | null;
+        };
+        /** SavedListResponse */
+        SavedListResponse: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /** Name */
+            name: string;
+            object_type: components["schemas"]["SavedListObject"];
+            /** Filters */
+            filters: {
+                [key: string]: unknown;
+            };
+            /** Columns */
+            columns: string[];
+            /** Sort */
+            sort: string | null;
+            /** Sort Order */
+            sort_order: string | null;
+            /**
+             * Created By
+             * Format: uuid
+             */
+            created_by: string;
+            /** Created By Name */
+            created_by_name: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /**
+             * Can Edit
+             * @description Whether **this** caller may change or delete it.
+             */
+            can_edit: boolean;
+        };
+        /** SavedListsResponse */
+        SavedListsResponse: {
+            /** Lists */
+            lists: components["schemas"]["SavedListResponse"][];
+            /**
+             * Can Create
+             * @description ADMIN or DEVELOPER — who may build a list.
+             */
+            can_create: boolean;
+        };
+        /**
          * ScreeningCapabilities
          * @description What the caller may do on this checklist, so the UI keeps no role list.
          */
@@ -4395,6 +5025,33 @@ export interface components {
             reason?: string | null;
         };
         /**
+         * SetPurchaseOrderRequest
+         * @description Record or correct the deal's purchase order — one per deal.
+         */
+        SetPurchaseOrderRequest: {
+            /** Po Number */
+            po_number: string;
+            /**
+             * Po Date
+             * Format: date
+             */
+            po_date: string;
+            /**
+             * Currency
+             * @description ISO 4217, e.g. USD
+             */
+            currency: string;
+            /** Total Amount */
+            total_amount: number | string;
+            /** Payment Terms */
+            payment_terms?: string | null;
+            /**
+             * Source Document Id
+             * @description The uploaded document the PO was read from — one of this deal's.
+             */
+            source_document_id?: string | null;
+        };
+        /**
          * SubjectType
          * @description What kind of entity a case is about. Discriminates KYC from KYB.
          * @enum {string}
@@ -4628,7 +5285,7 @@ export interface components {
          * UserRole
          * @enum {string}
          */
-        UserRole: "ADMIN" | "COMPLIANCE" | "OPERATIONS" | "API_USER" | "DEVELOPER";
+        UserRole: "ADMIN" | "COMPLIANCE" | "OPERATIONS" | "API_USER" | "DEVELOPER" | "FINANCER";
         /** ValidationError */
         ValidationError: {
             /** Location */
@@ -6499,6 +7156,10 @@ export interface operations {
                 journey?: components["schemas"]["ExporterJourney"] | null;
                 qualification?: components["schemas"]["QualificationState"] | null;
                 marker?: components["schemas"]["ExporterMarker"] | null;
+                added_from?: string | null;
+                added_to?: string | null;
+                sort?: components["schemas"]["CompanySort"];
+                order?: "asc" | "desc";
                 limit?: number;
                 offset?: number;
             };
@@ -6960,6 +7621,67 @@ export interface operations {
             };
         };
     };
+    log_call_api_v1_onboarding_exporters__customer_id__calls_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                customer_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LogCallRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoggedCallResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description OPERATIONS, COMPLIANCE or ADMIN role required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Company not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The status move is not available (a LEAD, or no change) */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description A foreign contact, a past follow-up, or a status move missing what it needs */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     list_pending_exporter_activities_api_v1_onboarding_exporters_activities_pending_get: {
         parameters: {
             query?: {
@@ -7202,7 +7924,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description OPERATIONS, COMPLIANCE or ADMIN role required */
+            /** @description OPERATIONS, COMPLIANCE, ADMIN or FINANCER role required */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -7258,7 +7980,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description OPERATIONS, COMPLIANCE or ADMIN role required */
+            /** @description OPERATIONS, COMPLIANCE, ADMIN or FINANCER role required */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -7363,7 +8085,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description OPERATIONS, COMPLIANCE or ADMIN role required */
+            /** @description OPERATIONS, COMPLIANCE, ADMIN or FINANCER role required */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -8248,6 +8970,101 @@ export interface operations {
             };
         };
     };
+    list_deals_api_v1_onboarding_deals_get: {
+        parameters: {
+            query?: {
+                stage?: components["schemas"]["DealStage"][] | null;
+                q?: string | null;
+                company_id?: string | null;
+                opened_from?: string | null;
+                opened_to?: string | null;
+                sort?: components["schemas"]["DealQueueSort"];
+                order?: "asc" | "desc";
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DealQueueResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description CRM read role required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `opened_from` is after `opened_to`, or an unknown sort */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    deal_summary_api_v1_onboarding_deals_summary_get: {
+        parameters: {
+            query?: {
+                from?: string | null;
+                to?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DealSummaryResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description CRM read role required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description `from` is not before `to` */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     get_deal_api_v1_onboarding_deals__deal_id__get: {
         parameters: {
             query?: never;
@@ -8414,6 +9231,566 @@ export interface operations {
                 content?: never;
             };
             /** @description Missing name, a country that is not ISO-3166-1 alpha-2, or a masked value sent back */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    get_purchase_order_api_v1_onboarding_deals__deal_id__purchase_order_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                deal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DealPaperworkResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description CRM read role required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    set_purchase_order_api_v1_onboarding_deals__deal_id__purchase_order_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                deal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetPurchaseOrderRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DealPaperworkResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description OPERATIONS or ADMIN role required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Deal, purchase order or invoice not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The deal is handed over or withdrawn, or an invoice number is taken */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid field, a currency other than the PO's, or a foreign document */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    add_invoice_api_v1_onboarding_deals__deal_id__purchase_order_invoices_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                deal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InvoiceRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DealPaperworkResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description OPERATIONS or ADMIN role required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Deal, purchase order or invoice not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The deal is handed over or withdrawn, or an invoice number is taken */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid field, a currency other than the PO's, or a foreign document */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    update_invoice_api_v1_onboarding_deals__deal_id__purchase_order_invoices__invoice_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                deal_id: string;
+                invoice_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InvoiceRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DealPaperworkResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description OPERATIONS or ADMIN role required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Deal, purchase order or invoice not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The deal is handed over or withdrawn, or an invoice number is taken */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid field, a currency other than the PO's, or a foreign document */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    remove_invoice_api_v1_onboarding_deals__deal_id__purchase_order_invoices__invoice_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                deal_id: string;
+                invoice_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DealPaperworkResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description OPERATIONS or ADMIN role required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Deal, purchase order or invoice not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The deal is handed over or withdrawn, or an invoice number is taken */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Invalid field, a currency other than the PO's, or a foreign document */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    suggest_fields_api_v1_onboarding_deals__deal_id__purchase_order_suggestions_get: {
+        parameters: {
+            query: {
+                document_id: string;
+                kind?: "purchase_order" | "invoice";
+            };
+            header?: never;
+            path: {
+                deal_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExtractedFieldsResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description OPERATIONS or ADMIN role required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Deal, purchase order or invoice not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description The deal is handed over or withdrawn, or an invoice number is taken */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not this deal's document, or not scanned clean */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    list_saved_lists_api_v1_onboarding_saved_lists_get: {
+        parameters: {
+            query?: {
+                object_type?: components["schemas"]["SavedListObject"] | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedListsResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description CRM read role required */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_saved_list_api_v1_onboarding_saved_lists_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SavedListRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedListResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description ADMIN or DEVELOPER role required, or the list is someone else's */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description A list of this kind already has that name */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description A filter, sort or column the list's endpoint does not have */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    update_saved_list_api_v1_onboarding_saved_lists__list_id__put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                list_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SavedListRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SavedListResponse"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description ADMIN or DEVELOPER role required, or the list is someone else's */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Saved list not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description A list of this kind already has that name */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description A filter, sort or column the list's endpoint does not have */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    delete_saved_list_api_v1_onboarding_saved_lists__list_id__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                list_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description ADMIN or DEVELOPER role required, or the list is someone else's */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Saved list not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description A list of this kind already has that name */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description A filter, sort or column the list's endpoint does not have */
             422: {
                 headers: {
                     [name: string]: unknown;
@@ -8874,7 +10251,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description OPERATIONS, COMPLIANCE or ADMIN role required */
+            /** @description OPERATIONS, COMPLIANCE, ADMIN or FINANCER role required */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -8929,7 +10306,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description OPERATIONS, COMPLIANCE or ADMIN role required */
+            /** @description OPERATIONS, COMPLIANCE, ADMIN or FINANCER role required */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -9543,7 +10920,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description OPERATIONS, COMPLIANCE or ADMIN role required */
+            /** @description OPERATIONS, COMPLIANCE, ADMIN or FINANCER role required */
             403: {
                 headers: {
                     [name: string]: unknown;
@@ -9647,7 +11024,7 @@ export interface operations {
                 };
                 content?: never;
             };
-            /** @description OPERATIONS, COMPLIANCE or ADMIN role required */
+            /** @description OPERATIONS, COMPLIANCE, ADMIN or FINANCER role required */
             403: {
                 headers: {
                     [name: string]: unknown;

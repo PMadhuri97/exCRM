@@ -186,6 +186,13 @@ BUILTIN_ROLE_PERMISSIONS: dict[UserRole, frozenset[tuple[str, str]]] = {
         ("verifications", "view"),
         ("screening", "view"),
     ),
+    # Underwriter and financier, one role (auth_0005). Reads what an underwriting
+    # view needs; decides nothing yet — the decision panel is build prompt chunk 6.
+    UserRole.FINANCER: _permissions_for(
+        ("exporters", "view"),
+        ("verifications", "view"),
+        ("screening", "view"),
+    ),
     # "Reaches nothing in the CRM."
     UserRole.API_USER: frozenset(),
 }
@@ -210,6 +217,12 @@ BUILTIN_ROLE_METADATA: dict[UserRole, tuple[str, str, str]] = {
         "developer",
         "Developer",
         "Read-only technical access. Tax identifiers are never revealed.",
+    ),
+    UserRole.FINANCER: (
+        "financer",
+        "Financer",
+        "Underwriting and financing. Reads every company and deal, including "
+        "background checks and verification results; tax identifiers are masked.",
     ),
     UserRole.API_USER: (
         "api-user",

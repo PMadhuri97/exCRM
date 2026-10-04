@@ -1468,3 +1468,118 @@ class VerificationLegacyReviewUnchainedError(AnerBaseException):
             status_code=409,
             extensions={"legacy_review_status": legacy_review_status},
         )
+
+
+# ── Purchase orders and invoices — build prompt chunk 2 ─────────────────────
+
+
+class PurchaseOrderNotFoundError(AnerBaseException):
+    """The deal has no purchase order yet — an invoice needs one first."""
+
+    def __init__(self, deal_id: object) -> None:
+        super().__init__(
+            detail=f"Deal {deal_id} has no purchase order yet; record the PO first",
+            error_code="PURCHASE_ORDER_NOT_FOUND",
+            status_code=404,
+        )
+
+
+class InvoiceNotFoundError(AnerBaseException):
+    """No invoice with that id on this deal's purchase order."""
+
+    def __init__(self, invoice_id: object) -> None:
+        super().__init__(
+            detail=f"Invoice {invoice_id} was not found on this purchase order",
+            error_code="INVOICE_NOT_FOUND",
+            status_code=404,
+        )
+
+
+class InvoiceNumberTakenError(AnerBaseException):
+    """The PO already has an invoice with that number (``uq_invoice_po_number``)."""
+
+    def __init__(self, invoice_number: str) -> None:
+        super().__init__(
+            detail=f"This purchase order already has invoice {invoice_number}",
+            error_code="INVOICE_NUMBER_TAKEN",
+            status_code=409,
+            extensions={"invoice_number": invoice_number},
+        )
+
+
+class InvoiceCurrencyMismatchError(AnerBaseException):
+    """An invoice in a currency other than its PO's.
+
+    One order is invoiced in one currency; a mismatch is a data-entry slip, and
+    letting it in would make every total on the deal meaningless.
+    """
+
+    def __init__(self, *, invoice_currency: str, po_currency: str) -> None:
+        super().__init__(
+            detail=(
+                f"The invoice is in {invoice_currency} but the purchase order is in "
+                f"{po_currency}; an order is invoiced in its own currency"
+            ),
+            error_code="INVOICE_CURRENCY_MISMATCH",
+            status_code=422,
+            extensions={"invoice_currency": invoice_currency, "po_currency": po_currency},
+        )
+
+
+class PurchaseOrderCurrencyLockedError(AnerBaseException):
+    """Changing a PO's currency while it has invoices in the old one."""
+
+    def __init__(self, *, current: str, requested: str) -> None:
+        super().__init__(
+            detail=(
+                f"The purchase order's invoices are in {current}; remove them before "
+                f"changing the currency to {requested}"
+            ),
+            error_code="PURCHASE_ORDER_CURRENCY_LOCKED",
+            status_code=409,
+        )
+
+
+class SourceDocumentNotOnDealError(AnerBaseException):
+    """A PO or invoice pointed at a document that is not one of this deal's."""
+
+    def __init__(self, document_id: object) -> None:
+        super().__init__(
+            detail=f"Document {document_id} is not one of this deal's documents",
+            error_code="SOURCE_DOCUMENT_NOT_ON_DEAL",
+            status_code=422,
+        )
+
+
+# ── Saved lists — build prompt chunk 3 ──────────────────────────────────────
+
+
+class SavedListNotFoundError(AnerBaseException):
+    def __init__(self, list_id: object) -> None:
+        super().__init__(
+            detail=f"Saved list {list_id} was not found",
+            error_code="SAVED_LIST_NOT_FOUND",
+            status_code=404,
+        )
+
+
+class SavedListNameTakenError(AnerBaseException):
+    """Two lists of one kind with one name would be two tabs nobody can tell apart."""
+
+    def __init__(self, name: str) -> None:
+        super().__init__(
+            detail=f"There is already a list called {name!r} here",
+            error_code="SAVED_LIST_NAME_TAKEN",
+            status_code=409,
+        )
+
+
+class SavedListNotYoursError(AnerBaseException):
+    """Changing or deleting a list someone else built, without being ADMIN."""
+
+    def __init__(self, list_id: object) -> None:
+        super().__init__(
+            detail=f"Saved list {list_id} was built by someone else; only they or an admin may change it",
+            error_code="SAVED_LIST_NOT_YOURS",
+            status_code=403,
+        )

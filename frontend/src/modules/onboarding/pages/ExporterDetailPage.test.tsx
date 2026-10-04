@@ -62,6 +62,10 @@ vi.mock('../api', () => ({
   listCompanyDocuments: vi.fn(),
   getDocumentCategories: vi.fn(),
   listCompanyHistory: vi.fn(),
+  // The client dashboard's summary card and call pop-up (Centrex §6/§8).
+  listDeals: vi.fn(async () => ({ deals: [], total: 0, limit: 100, offset: 0, stage_counts: {} })),
+  getBackgroundCheck: vi.fn(async () => ({ value: 'NOT_STARTED', allowed_moves: [] })),
+  logCall: vi.fn(),
 }));
 
 const DETAIL: ExporterProfileDetail = {
@@ -250,6 +254,13 @@ describe('ExporterDetailPage — E9', () => {
     expect(screen.getByRole('tab', { name: 'History' })).toBeInTheDocument();
   });
 
+  it('gives FINANCER the Background check tab — underwriting reads it, and changes nothing', async () => {
+    mockUser('FINANCER', 'someone-else');
+    renderPage();
+    await screen.findByRole('heading', { name: 'Acme Exports Pvt Ltd' });
+    expect(screen.getByRole('tab', { name: 'Background check' })).toBeInTheDocument();
+  });
+
   it('shows the company history, with who changed what and why', async () => {
     mockUser('OPERATIONS', 'someone-else');
     vi.mocked(listCompanyHistory).mockResolvedValue({
@@ -315,8 +326,8 @@ describe('ExporterDetailPage — E9', () => {
     mockUser('COMPLIANCE', 'someone-else');
     renderPage();
     await screen.findByRole('heading', { name: 'Acme Exports Pvt Ltd' });
-    // PAN, GSTIN and IEC in the profile, plus PAN and GSTIN in the header strip.
-    expect(screen.getAllByRole('button', { name: /reveal value/i })).toHaveLength(5);
+    // PAN, GSTIN and IEC in the profile, and again in the summary card.
+    expect(screen.getAllByRole('button', { name: /reveal value/i })).toHaveLength(6);
   });
 
   it('links an http(s) website, and shows any other stored value as text, never as a link', async () => {
@@ -337,7 +348,8 @@ describe('ExporterDetailPage — E9', () => {
     });
     renderPage();
     await screen.findByRole('heading', { name: 'Acme Exports Pvt Ltd' });
-    expect(screen.getByText('javascript:alert(document.cookie)')).toBeInTheDocument();
+    // Shown as text in the profile and the summary card — and a link in neither.
+    expect(screen.getAllByText('javascript:alert(document.cookie)').length).toBeGreaterThan(0);
     expect(screen.queryByRole('link', { name: /javascript:/ })).not.toBeInTheDocument();
   });
 
@@ -528,4 +540,116 @@ describe('ExporterDetailPage — E9', () => {
     );
   });
 
+});
+
+describe('ExporterDetailPage — the client dashboard (Centrex §8) and call pop-up (§6)', () => {
+  const ROHAN = {
+    id: 'p1',
+    customer_id: DETAIL.customer_id,
+    name: 'Rohan Mehta',
+    role: 'Finance head',
+    email: 'rohan@acme.example',
+    phone: '+91 22 5550 2222',
+    department: null,
+    is_primary_contact: true,
+  };
+
+  function renderAt(url: string) {
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    return render(
+      <QueryClientProvider client={client}>
+        <MemoryRouter initialEntries={[url]}>
+          <Routes>
+            <Route path="/companies/:customerId" element={<ExporterDetailPage />} />
+          </Routes>
+        </MemoryRouter>
+      </QueryClientProvider>,
+    );
+  }
+
+  beforeEach(() => {
+    vi.mocked(getExporterProfileDetail).mockResolvedValue({
+      ...DETAIL,
+      marker: 'PAUSED',
+      marker_reason: 'Seasonal — back in November',
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test double
+      contacts: [ROHAN as any],
+    });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test double
+    vi.mocked(listExporterContacts).mockResolvedValue({ customer_id: DETAIL.customer_id, contacts: [ROHAN as any] });
+    vi.mocked(listExporterActivities).mockResolvedValue({
+      customer_id: DETAIL.customer_id,
+      activities: [
+        {
+          id: 'a1',
+          customer_id: DETAIL.customer_id,
+          activity_type: 'CALL',
+          subject: 'Outgoing call to Rohan Mehta — connected',
+          notes: 'PO confirmed with the buyer',
+          actor_id: 'u1',
+          actor_name: 'Olivia Ops',
+          occurred_at: '2026-09-28T09:30:00Z',
+          due_at: null,
+          created_at: '2026-09-28T09:30:00Z',
+          call_direction: 'OUTBOUND',
+          call_result: 'CONNECTED',
+          call_duration_seconds: 245,
+          contact_id: 'p1',
+        },
+      ],
+    });
+  });
+
+  it('keeps a summary beside every tab: the paused banner, the contact and a way to log a call', async () => {
+    mockUser('OPERATIONS', 'someone-else');
+    renderAt(`/companies/${DETAIL.customer_id}`);
+    const summary = await screen.findByRole('complementary', { name: 'Company summary' });
+    expect(within(summary).getByText(/This relationship is paused/)).toBeInTheDocument();
+    expect(within(summary).getByText(/Seasonal — back in November/)).toBeInTheDocument();
+    expect(await within(summary).findByText('Rohan Mehta')).toBeInTheDocument();
+    expect(within(summary).getByRole('button', { name: /Log a call/ })).toBeInTheDocument();
+  });
+
+  it('gives FINANCER the summary but no call logging', async () => {
+    mockUser('FINANCER', 'someone-else');
+    renderAt(`/companies/${DETAIL.customer_id}`);
+    const summary = await screen.findByRole('complementary', { name: 'Company summary' });
+    expect(within(summary).queryByRole('button', { name: /Log a call/ })).toBeNull();
+  });
+
+  it('opens the call pop-up for the primary contact from a ?call link', async () => {
+    mockUser('OPERATIONS', 'someone-else');
+    renderAt(`/companies/${DETAIL.customer_id}?call=primary`);
+    expect(await screen.findByRole('heading', { name: /Log a call with Rohan Mehta/ })).toBeInTheDocument();
+  });
+
+  it('shows calls with their details beside recorded changes on the Activity tab', async () => {
+    mockUser('OPERATIONS', 'someone-else');
+    vi.mocked(listCompanyHistory).mockResolvedValue({
+      entries: [
+        {
+          id: 'h1',
+          company_id: DETAIL.customer_id,
+          dimension: 'journey',
+          event_type: 'lifecycle_transition',
+          from_value: 'LEAD',
+          to_value: 'PROSPECT',
+          actor_id: 'u2',
+          actor_name: 'Casey Compliance',
+          occurred_at: '2026-09-20T10:00:00Z',
+        },
+      ],
+      total: 1,
+      limit: 50,
+      offset: 0,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- test double
+    } as any);
+    renderAt(`/companies/${DETAIL.customer_id}?tab=activity`);
+    const call = await screen.findByTestId('timeline-activity');
+    expect(within(call).getByText('Outgoing call to Rohan Mehta — connected')).toBeInTheDocument();
+    expect(within(call).getByText(/Connected/)).toBeInTheDocument();
+    expect(within(call).getByText(/4:05/)).toBeInTheDocument();
+    const change = await screen.findByTestId('timeline-change');
+    expect(within(change).getByText('Journey: Lead → Prospect')).toBeInTheDocument();
+  });
 });

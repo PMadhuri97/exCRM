@@ -37,7 +37,16 @@ STAFF = {UserRole.OPERATIONS, UserRole.COMPLIANCE, UserRole.ADMIN}
 COMPLIANCE_OR_ADMIN = {UserRole.COMPLIANCE, UserRole.ADMIN}
 ADMIN_ONLY = {UserRole.ADMIN}
 # Masked exporter-CRM reads: DEVELOPER may read, never unmasked.
-READERS = STAFF | {UserRole.DEVELOPER}
+READERS = STAFF | {UserRole.DEVELOPER, UserRole.FINANCER}
+# Underwriting reads: staff plus FINANCER; DEVELOPER stays out (D8).
+UNDERWRITING_READERS = STAFF | {UserRole.FINANCER}
+# A deal's PO and invoices (chunk 2): OPERATIONS and ADMIN write; COMPLIANCE may not.
+PO_EDITORS = {UserRole.OPERATIONS, UserRole.ADMIN}
+# Saved lists (chunk 3): ADMIN and DEVELOPER build them; every reader sees them.
+LIST_BUILDERS = {UserRole.ADMIN, UserRole.DEVELOPER}
+_LIST_BODY = {"name": "Gate check", "object_type": "DEALS"}
+_PO_BODY = {"po_number": "PO-1", "po_date": "2026-09-01", "currency": "USD", "total_amount": "100.00"}
+_INVOICE_BODY = {"invoice_number": "INV-1", "invoice_date": "2026-09-02", "amount": "50.00"}
 
 
 def _case_body() -> dict:
@@ -146,15 +155,15 @@ GATED_ROUTES = [
     ("GET", f"{BASE}/cases/{_ID}/transitions", None, STAFF),
     ("GET", f"{BASE}/{_ID}/sdk-token", None, STAFF),
     ("GET", f"{BASE}/{_ID}/status", None, STAFF),
-    ("GET", f"{BASE}/verifications/{_ID}", None, STAFF),
-    ("GET", f"{BASE}/verifications?entity_type=EXPORTER&entity_reference={_ID}", None, STAFF),
+    ("GET", f"{BASE}/verifications/{_ID}", None, UNDERWRITING_READERS),
+    ("GET", f"{BASE}/verifications?entity_type=EXPORTER&entity_reference={_ID}", None, UNDERWRITING_READERS),
     ("GET", f"{BASE}/exporters", None, READERS),
     ("GET", f"{BASE}/exporters/{_ID}", None, READERS),
     ("GET", f"{BASE}/exporters/{_ID}/contacts", None, READERS),
     ("GET", f"{BASE}/exporters/{_ID}/activities", None, READERS),
     ("GET", f"{BASE}/exporters/activities/pending", None, READERS),
-    ("GET", f"{BASE}/exporters/{_ID}/screening-review", None, STAFF),
-    ("GET", f"{BASE}/exporters/{_ID}/bank-activity", None, STAFF),
+    ("GET", f"{BASE}/exporters/{_ID}/screening-review", None, UNDERWRITING_READERS),
+    ("GET", f"{BASE}/exporters/{_ID}/bank-activity", None, UNDERWRITING_READERS),
     ("GET", f"{BASE}/qualification/criteria", None, READERS),
     ("GET", f"{BASE}/qualification/criteria/revenue/versions", None, READERS),
     ("GET", f"{BASE}/qualification/reason-codes", None, READERS),
@@ -204,7 +213,25 @@ GATED_ROUTES = [
     # handler never reached the service.
     ("POST", f"{BASE}/exporters/{_ID}/deals", {"reference": "Rotterdam order"}, STAFF),
     ("GET", f"{BASE}/exporters/{_ID}/deals", None, READERS),
+    ("GET", f"{BASE}/deals", None, READERS),
+    ("GET", f"{BASE}/deals/summary", None, READERS),
     ("GET", f"{BASE}/deals/{_ID}", None, READERS),
+    ("GET", f"{BASE}/deals/{_ID}/purchase-order", None, READERS),
+    ("PUT", f"{BASE}/deals/{_ID}/purchase-order", _PO_BODY, PO_EDITORS),
+    ("POST", f"{BASE}/deals/{_ID}/purchase-order/invoices", _INVOICE_BODY, PO_EDITORS),
+    ("PUT", f"{BASE}/deals/{_ID}/purchase-order/invoices/{_ID}", _INVOICE_BODY, PO_EDITORS),
+    ("DELETE", f"{BASE}/deals/{_ID}/purchase-order/invoices/{_ID}", None, PO_EDITORS),
+    ("GET", f"{BASE}/deals/{_ID}/purchase-order/suggestions?document_id={_ID}", None, PO_EDITORS),
+    ("GET", f"{BASE}/saved-lists", None, READERS),
+    (
+        "POST",
+        f"{BASE}/exporters/{_ID}/calls",
+        {"direction": "OUTBOUND", "result": "CONNECTED"},
+        STAFF,
+    ),
+    ("POST", f"{BASE}/saved-lists", _LIST_BODY, LIST_BUILDERS),
+    ("PUT", f"{BASE}/saved-lists/{_ID}", _LIST_BODY, LIST_BUILDERS),
+    ("DELETE", f"{BASE}/saved-lists/{_ID}", None, LIST_BUILDERS),
     (
         "POST",
         f"{BASE}/deals/{_ID}/transitions",
@@ -245,14 +272,14 @@ GATED_ROUTES = [
     #
     # `STAFF` throughout: DEVELOPER is refused even on the reads, pending D8. These
     # rows are what proves it, rather than the intention living only in a comment.
-    ("GET", f"{BASE}/exporters/{_ID}/background-check", None, STAFF),
+    ("GET", f"{BASE}/exporters/{_ID}/background-check", None, UNDERWRITING_READERS),
     (
         "POST",
         f"{BASE}/exporters/{_ID}/background-check/decisions",
         {"to_value": "IN_REVIEW"},
         STAFF,
     ),
-    ("GET", f"{BASE}/exporters/{_ID}/background-check/decisions", None, STAFF),
+    ("GET", f"{BASE}/exporters/{_ID}/background-check/decisions", None, UNDERWRITING_READERS),
     #
     # ── Verification and screening — owner: Developer 4B ──
     # (4B appends here; 4A does not.)
@@ -260,7 +287,7 @@ GATED_ROUTES = [
         "GET",
         f"{BASE}/exporters/{_ID}/screening-review/website-reviewed/history",
         None,
-        STAFF,
+        UNDERWRITING_READERS,
     ),
 ]
 

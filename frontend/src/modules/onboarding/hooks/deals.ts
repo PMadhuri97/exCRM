@@ -9,17 +9,26 @@
  * conversation keys as well as the deal ones — see `useOpenDeal`.
  */
 
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  keepPreviousData,
+  type QueryClient,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
 
 import {
   getDeal,
+  getDealSummary,
   listCompanyDeals,
+  listDeals,
   openDeal,
   setDealBuyer,
   transitionDealStage,
 } from '../api';
 import type {
   DealListParams,
+  DealQueueParams,
   OpenDealRequest,
   SetDealBuyerRequest,
   TransitionDealStageRequest,
@@ -34,6 +43,26 @@ export function useCompanyDeals(
     queryFn: () => listCompanyDeals(customerId!, params),
     enabled: Boolean(customerId),
   });
+}
+
+/** The Deals list. Keeps the previous page on screen while the next one loads,
+ * so changing a tab or a sort does not flash an empty table. */
+export function useDealQueue(params: DealQueueParams) {
+  return useQuery({
+    queryKey: ['dealQueue', params],
+    queryFn: () => listDeals(params),
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useDealSummary() {
+  return useQuery({ queryKey: ['dealSummary'], queryFn: () => getDealSummary() });
+}
+
+/** Every write to a deal changes a row and a count on the Deals list. */
+function invalidateDealQueue(queryClient: QueryClient) {
+  void queryClient.invalidateQueries({ queryKey: ['dealQueue'] });
+  void queryClient.invalidateQueries({ queryKey: ['dealSummary'] });
 }
 
 export function useDeal(dealId: string | undefined) {
@@ -68,6 +97,7 @@ export function useOpenDeal(customerId: string) {
   return useMutation({
     mutationFn: (body: OpenDealRequest) => openDeal(customerId, body),
     onSuccess: () => {
+      invalidateDealQueue(queryClient);
       void queryClient.invalidateQueries({ queryKey: ['deals', customerId] });
       void queryClient.invalidateQueries({ queryKey: ['companyHistory', customerId] });
       void queryClient.invalidateQueries({
@@ -95,6 +125,7 @@ export function useTransitionDealStage(dealId: string, customerId?: string) {
     mutationFn: (body: TransitionDealStageRequest) =>
       transitionDealStage(dealId, body),
     onSuccess: () => {
+      invalidateDealQueue(queryClient);
       void queryClient.invalidateQueries({ queryKey: ['deal', dealId] });
       void queryClient.invalidateQueries({ queryKey: ['dealHistory', dealId] });
       if (customerId !== undefined) {
@@ -110,6 +141,7 @@ export function useSetDealBuyer(dealId: string, customerId?: string) {
   return useMutation({
     mutationFn: (body: SetDealBuyerRequest) => setDealBuyer(dealId, body),
     onSuccess: () => {
+      invalidateDealQueue(queryClient);
       void queryClient.invalidateQueries({ queryKey: ['deal', dealId] });
       void queryClient.invalidateQueries({ queryKey: ['dealHistory', dealId] });
       if (customerId !== undefined) {

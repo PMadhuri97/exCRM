@@ -33,7 +33,7 @@ import {
   Textarea,
 } from '@/components';
 import { formatDateTime, humanize } from '@/lib/format';
-import { isStaffRole, useCurrentUser } from '@/platform/auth';
+import { canReadUnderwriting, isStaffRole, useCurrentUser } from '@/platform/auth';
 import { canReveal } from '@/platform/mask';
 
 import {
@@ -52,6 +52,7 @@ import {
   useUploadDealDocument,
 } from '../hooks';
 import { paths } from '../paths';
+import { PurchaseOrderPanel } from './panels/PurchaseOrderPanel';
 import type { DealStage, SetDealBuyerRequest } from '../types';
 
 const STAGE_ACTION_LABEL: Record<DealStage, string> = {
@@ -402,11 +403,13 @@ export function DealDetailPage() {
             )}
           </Panel>
 
+          <PurchaseOrderPanel dealId={deal.id} />
+
           {/* Checks on the buyer (decision 9: they attach to the buyer, never the
-              company). Staff only: DEVELOPER is refused the verification routes (D8).
+              company). Staff and FINANCER: DEVELOPER is refused the verification routes (D8).
               Whether recording is offered is the server's `capabilities` — closed on
               a HANDED_OVER or WITHDRAWN deal (D17). */}
-          {isStaff && deal.buyer && <BuyerChecks dealId={deal.id} dealBuyerId={deal.buyer.id} />}
+          {canReadUnderwriting(user.role) && deal.buyer && <BuyerChecks dealId={deal.id} dealBuyerId={deal.buyer.id} />}
 
           <Panel
             title="Paperwork"

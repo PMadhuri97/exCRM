@@ -18,7 +18,8 @@
  *
  * The one role check that remains is the one the page already applied: DEVELOPER may
  * read the CRM but the background-check routes refuse it (D8, settled 28 September
- * 2026), so the panel is not rendered for it rather than rendered broken.
+ * 2026), so the panel is not rendered for it rather than rendered broken. FINANCER
+ * reads it; the server offers it no move and no capability, so it sees no button.
  */
 
 import { useState } from 'react';
@@ -147,12 +148,13 @@ function GaugeSection({ customerId }: { customerId: string }) {
 
 export function BackgroundCheckPanel({
   customerId,
-  isStaff,
+  canView,
 }: {
   customerId: string;
-  isStaff: boolean;
+  /** Staff or FINANCER — `canReadUnderwriting`. */
+  canView: boolean;
 }) {
-  if (!isStaff) return null;
+  if (!canView) return null;
   return (
     <div className="flex flex-col gap-4">
       <GaugeSection customerId={customerId} />

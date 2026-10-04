@@ -46,9 +46,11 @@ def has_gcp_credentials() -> bool:
         return False
 
 
+from app.platform.audit_framework.config import AUDIT_SINK_GCP_ENABLED  # noqa: E402
+
 gcp_integration = pytest.mark.skipif(
-    not has_gcp_credentials(),
-    reason="GCP credentials not available in environment",
+    not AUDIT_SINK_GCP_ENABLED or not has_gcp_credentials(),
+    reason="GCP audit sink paused (AUDIT_SINK_GCP_ENABLED) or no GCP credentials",
 )
 
 

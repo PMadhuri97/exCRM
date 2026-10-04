@@ -7,41 +7,29 @@
  * **The stage is shown, never chosen here.** A deal moves on `DealDetailPage`,
  * which asks the server which moves it may offer (`allowed_stage_moves`). A list
  * is a place to see and to navigate.
+ *
+ * **The rows are the Deals table, scoped to this company** (build prompt chunk
+ * 1.5): the same component and the same server read as the global list, filtered
+ * by `company_id` — not a second list implementation. The company's own columns
+ * (its name, journey and background check) are left out: this page already says
+ * them. Whether a deal may be opened here still comes from the company's own deal
+ * route (`can_open_deal`).
  */
 
-import { ChevronRight, FileText, Plus } from 'lucide-react';
+import { FileText, Plus } from 'lucide-react';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 
 import { Button, buttonClasses, EmptySection, Panel, Skeleton } from '@/components';
-import { formatDate } from '@/lib/format';
 
-import { DealStageChip, OpenDealForm } from '../../components';
-import { useCompanyDeals } from '../../hooks';
+import { DEAL_COLUMNS, DealsTable, OpenDealForm, type DealsSort } from '../../components';
+import { useCompanyDeals, useDealQueue } from '../../hooks';
 import { paths } from '../../paths';
-import type { DealListItem } from '../../types';
 
-function DealRow({ deal }: { deal: DealListItem }) {
-  return (
-    <li>
-      <Link
-        to={paths.deal(deal.id)}
-        className="group flex flex-wrap items-center justify-between gap-3 px-4 py-3 transition-colors hover:bg-surface-subtle"
-      >
-        <div className="min-w-0">
-          <span className="font-medium text-ink group-hover:text-brand-600">{deal.reference}</span>
-          <p className="mt-0.5 text-xs text-ink-muted">
-            {deal.buyer_name ?? 'No buyer recorded yet'} · opened {formatDate(deal.created_at)}
-          </p>
-        </div>
-        <span className="flex items-center gap-2">
-          <DealStageChip stage={deal.stage} />
-          <ChevronRight size={15} className="text-ink-faint" />
-        </span>
-      </Link>
-    </li>
-  );
-}
+/** The deal columns worth showing inside one company's page. */
+const SCOPED_COLUMNS = DEAL_COLUMNS.filter((column) =>
+  ['reference', 'buyer', 'stage', 'amount', 'created_at', 'updated_at'].includes(column.id),
+);
 
 export function DealsPanel({
   customerId,
@@ -51,8 +39,12 @@ export function DealsPanel({
   isStaff: boolean;
 }) {
   const [opening, setOpening] = useState(false);
-  const { data, isLoading, isError } = useCompanyDeals(customerId);
-  const deals = data?.deals ?? [];
+  const [sort, setSort] = useState<DealsSort>({ sort: 'created_at', order: 'desc' });
+  // The same query the company page makes for its tab count — no extra request.
+  const { data } = useCompanyDeals(customerId);
+  const queue = useDealQueue({ companyId: customerId, sort: sort.sort, order: sort.order, limit: 100 });
+  const deals = queue.data?.deals ?? [];
+  const { isLoading, isError } = queue;
   // The server says whether this viewer may open a deal here (§7.5): a staff role,
   // and a company that is a PROSPECT or CUSTOMER — a LEAD is refused.
   const canOpen = data?.can_open_deal ?? false;
@@ -97,11 +89,15 @@ export function DealsPanel({
       )}
 
       {deals.length > 0 && (
-        <ul className="divide-y divide-border overflow-hidden rounded-lg border border-border">
-          {deals.map((deal) => (
-            <DealRow key={deal.id} deal={deal} />
-          ))}
-        </ul>
+        <div className="overflow-hidden rounded-lg border border-border">
+          <DealsTable
+            rows={deals}
+            columns={SCOPED_COLUMNS}
+            sort={sort}
+            onSortChange={setSort}
+            empty="No deals yet."
+          />
+        </div>
       )}
     </Panel>
   );

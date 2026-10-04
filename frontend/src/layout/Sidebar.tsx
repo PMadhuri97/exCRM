@@ -1,4 +1,5 @@
 import {
+  Banknote,
   Building2,
   Home,
   Kanban,
@@ -19,13 +20,15 @@ interface NavItem {
 }
 
 /**
- * The main rows. Deals and documents are reached from a company's page, not
- * from here: the server has no cross-company deal or document list, and a row
- * that could only say "pick a company first" would be fake navigation.
+ * The main rows. Deals have a cross-company list of their own;
+ * documents are still reached from a company's or a deal's page, since the
+ * server has no cross-company document list and a row that could only say
+ * "pick a company first" would be fake navigation.
  */
 const NAV_ITEMS: NavItem[] = [
   { label: 'Home', path: '/', icon: Home },
   { label: 'Companies', path: '/companies', icon: Building2 },
+  { label: 'Deals', path: '/deals', icon: Banknote },
   { label: 'Follow-ups', path: '/follow-ups', icon: ListChecks },
   { label: 'Pipeline', path: '/pipeline', icon: Kanban },
 ];

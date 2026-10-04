@@ -21,6 +21,8 @@ import { apiRequest } from '@/lib/api/client';
 import type {
   Conversation,
   HistoryList,
+  LogCallRequest,
+  LoggedCall,
   SetConversationRequest,
 } from '../types';
 
@@ -118,4 +120,13 @@ export function listConversationHistory(
   return apiRequest<HistoryList>(
     `/onboarding/exporters/${customerId}/history?${query.toString()}`,
   );
+}
+
+/**
+ * Log a call — Centrex §6's call pop-up in one save: the call, optionally a status
+ * (conversation) move, optionally a follow-up. The server commits all of it or
+ * none: a refused status move logs no call.
+ */
+export function logCall(customerId: string, body: LogCallRequest): Promise<LoggedCall> {
+  return apiRequest<LoggedCall>(`/onboarding/exporters/${customerId}/calls`, { method: 'POST', body });
 }

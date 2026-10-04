@@ -683,15 +683,18 @@ async def test_a_developer_is_served_no_moves_and_no_blocked_reason(client: Asyn
 
 
 async def test_the_blocked_reason_names_every_unmet_condition():
-    """A PROSPECT whose check is not CLEAR fails both halves of the guard, and the
-    reason says both, journey first — not only the first one found."""
+    """A PROSPECT whose check is not CLEAR, with no purchase order, fails every part
+    of the guard, and the reason says all of it, journey first — not only the
+    first one found."""
     view = await _open(await _company(ExporterJourney.PROSPECT))
     async with db_services.AsyncSessionLocal() as db:
         moved = await DealService(db).transition_stage(
             view.id, DealStage.GATHERING_PAPERWORK, actor_id="tester"
         )
+    # Every unmet condition, the purchase order last (chunk 2).
     assert moved.handover_blocked_reason == (
-        "the company is PROSPECT, not CUSTOMER; the background check is NOT_STARTED, not CLEAR"
+        "the company is PROSPECT, not CUSTOMER; the background check is NOT_STARTED, not CLEAR;"
+        " there is no purchase order"
     )
 
 

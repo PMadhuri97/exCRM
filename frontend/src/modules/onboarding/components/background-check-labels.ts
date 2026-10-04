@@ -8,6 +8,19 @@
  * not know is shown as it arrived rather than hidden.
  */
 
+import type { BackgroundCheckState } from '../types';
+
+/** The six values of `background-check.md` §2, as the gauge and the Deals
+ * list say them. `NOT_STARTED` is "Not started", never "pending". */
+export const BACKGROUND_CHECK_LABEL: Record<BackgroundCheckState, string> = {
+  NOT_STARTED: 'Not started',
+  IN_REVIEW: 'In review',
+  MORE_INFO: 'More information needed',
+  CLEAR: 'Clear',
+  FLAGGED: 'Flagged',
+  ON_HOLD: 'On hold',
+};
+
 const CLEAR_PREREQUISITE_LABELS: Record<string, string> = {
   risk_rating: 'choose a risk rating',
   no_checks_pending:

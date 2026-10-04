@@ -29,7 +29,8 @@ path, operation or schema changed.
 from __future__ import annotations
 
 import uuid
-from typing import Annotated
+from datetime import date
+from typing import Annotated, Literal
 
 import structlog
 from fastapi import APIRouter, Depends, Header, Query, Response
@@ -57,6 +58,9 @@ from app.modules.onboarding.domain.entities.exporter_enums import (
 from app.modules.onboarding.domain.entities.exporter_profile import ExporterProfile
 from app.modules.onboarding.domain.entities.qualification_enums import QualificationState
 from app.modules.onboarding.exceptions import IdentifierSearchNotPermittedError
+from app.modules.onboarding.infrastructure.repositories.exporter_profile_repository import (
+    CompanySort,
+)
 from app.platform.authentication.models import User, UserRole
 from app.platform.authorization.services import require_role
 from app.platform.database.services import get_db
@@ -74,8 +78,13 @@ _MARKER_ROLES = frozenset({UserRole.OPERATIONS, UserRole.COMPLIANCE, UserRole.AD
 # Masked CRM reads. DEVELOPER may read the CRM but never sees a raw
 # identifier (`can_reveal_identifiers` is always False for it), per the role
 # matrix in docs/architecture.md, "Roles and masking" (architecture §3.7).
+# FINANCER reads here too, masked the same way as OPERATIONS.
 _READER = require_role(
-    UserRole.OPERATIONS, UserRole.COMPLIANCE, UserRole.ADMIN, UserRole.DEVELOPER
+    UserRole.OPERATIONS,
+    UserRole.COMPLIANCE,
+    UserRole.ADMIN,
+    UserRole.DEVELOPER,
+    UserRole.FINANCER,
 )
 
 
@@ -299,12 +308,18 @@ async def search_exporter_profiles(
     journey: ExporterJourney | None = Query(default=None),
     qualification: QualificationState | None = Query(default=None),
     marker: ExporterMarker | None = Query(default=None),
+    added_from: date | None = Query(default=None),
+    added_to: date | None = Query(default=None),
+    sort: CompanySort = Query(default=CompanySort.DATE_ADDED),
+    order: Literal["asc", "desc"] = Query(default="desc"),
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
 ) -> ExporterProfileSearchResponse:
     _reject_identifier_search(current_user, gstin=gstin, pan=pan, iec=iec)
+    if added_from is not None and added_to is not None and added_from > added_to:
+        raise ValidationError("`added_from` must not be after `added_to`.")
 
-    items = await ExporterProfileService(db).search_profiles(
+    page = await ExporterProfileService(db).list_companies(
         gstin=gstin,
         pan=pan,
         iec=iec,
@@ -313,16 +328,22 @@ async def search_exporter_profiles(
         journey=journey,
         qualification=qualification,
         marker=marker,
+        added_on_or_after=added_from,
+        added_on_or_before=added_to,
+        sort=sort,
+        descending=order == "desc",
         limit=limit,
         offset=offset,
     )
     return ExporterProfileSearchResponse(
         profiles=[
             ExporterProfileListItemResponse.model_validate(item).masked_for(current_user)
-            for item in items
+            for item in page.items
         ],
         limit=limit,
         offset=offset,
+        total=page.total,
+        journey_counts=page.journey_counts,
     )
 
 

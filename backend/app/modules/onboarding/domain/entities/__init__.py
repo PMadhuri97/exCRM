@@ -176,6 +176,22 @@ from app.modules.onboarding.domain.entities.document_enums import (  # noqa: E40
 
 __all__ += ["CrmDocument", "DocumentCategory", "DocumentOwnerKind", "DocumentSource"]
 
+# ── Purchase orders and invoices — build prompt chunk 2 (migration 0023) ──
+from app.modules.onboarding.domain.entities.purchase_order import (  # noqa: E402
+    Invoice,
+    PurchaseOrder,
+)
+
+__all__ += ["Invoice", "PurchaseOrder"]
+
+# ── Saved lists — build prompt chunk 3 (migration 0024) ──
+from app.modules.onboarding.domain.entities.saved_list import (  # noqa: E402
+    SavedList,
+    SavedListObject,
+)
+
+__all__ += ["SavedList", "SavedListObject"]
+
 
 # ══════════════════════════════════════════════════════════════════════════════
 # Dev4 seam — anchor blocks for Developers 4A and 4B (4B-0; 4a/4b-task.md §9)

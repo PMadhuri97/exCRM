@@ -4,7 +4,7 @@ import type { UserRole } from '@/lib/api/types';
  * Who may see a raw tax identifier:
  *
  *   COMPLIANCE / ADMIN                — unmasked.
- *   OPERATIONS / DEVELOPER / API_USER — masked, always.
+ *   OPERATIONS / DEVELOPER / FINANCER / API_USER — masked, always.
  *
  * This mirrors `can_reveal_identifiers` in
  * `backend/app/modules/onboarding/api/schemas/exporter.py`, which is what
@@ -26,6 +26,7 @@ export function canReveal(role: UserRole): boolean {
       return true;
     case 'OPERATIONS':
     case 'DEVELOPER':
+    case 'FINANCER':
     case 'API_USER':
       return false;
   }

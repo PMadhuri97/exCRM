@@ -7,7 +7,11 @@
  * pass-through scanner warnings exist to prevent.
  */
 
+import { Chip, type ChipTone } from '@/components';
+
 import type { BackgroundCheckState } from '../types';
+
+import { BACKGROUND_CHECK_LABEL } from './background-check-labels';
 
 const STYLES: Record<BackgroundCheckState, string> = {
   NOT_STARTED: 'bg-slate-100 text-slate-600 ring-slate-500/20',
@@ -16,15 +20,6 @@ const STYLES: Record<BackgroundCheckState, string> = {
   CLEAR: 'bg-emerald-50 text-emerald-700 ring-emerald-600/20',
   FLAGGED: 'bg-red-50 text-red-700 ring-red-600/20',
   ON_HOLD: 'bg-orange-50 text-orange-800 ring-orange-600/30',
-};
-
-const LABELS: Record<BackgroundCheckState, string> = {
-  NOT_STARTED: 'Not started',
-  IN_REVIEW: 'In review',
-  MORE_INFO: 'More information needed',
-  CLEAR: 'Clear',
-  FLAGGED: 'Flagged',
-  ON_HOLD: 'On hold',
 };
 
 /** What each value means, in a sentence, so nobody has to guess. */
@@ -45,9 +40,28 @@ export function BackgroundCheckGauge({ value }: { value: BackgroundCheckState })
         data-value={value}
         className={`inline-flex w-fit items-center rounded-full px-2.5 py-1 text-sm font-medium ring-1 ring-inset ${STYLES[value]}`}
       >
-        {LABELS[value]}
+        {BACKGROUND_CHECK_LABEL[value]}
       </span>
       <p className="text-xs text-slate-500">{DESCRIPTIONS[value]}</p>
     </div>
+  );
+}
+
+const CHIP_TONE: Record<BackgroundCheckState, ChipTone> = {
+  NOT_STARTED: 'neutral',
+  IN_REVIEW: 'info',
+  MORE_INFO: 'warning',
+  CLEAR: 'success',
+  FLAGGED: 'danger',
+  ON_HOLD: 'danger',
+};
+
+/** The same value as the gauge, sized for a table row: the label only, with the
+ * sentence as a tooltip. */
+export function BackgroundCheckChip({ value }: { value: BackgroundCheckState }) {
+  return (
+    <Chip dot tone={CHIP_TONE[value]} title={DESCRIPTIONS[value]}>
+      {BACKGROUND_CHECK_LABEL[value]}
+    </Chip>
   );
 }

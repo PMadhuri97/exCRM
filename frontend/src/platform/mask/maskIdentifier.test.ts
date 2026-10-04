@@ -31,6 +31,10 @@ describe('maskIdentifier', () => {
     );
   });
 
+  it('always masks for FINANCER', () => {
+    expect(maskIdentifier(PAN, { role: 'FINANCER' })).toBe('••••••234F');
+  });
+
   it('always masks for API_USER', () => {
     expect(maskIdentifier(PAN, { role: 'API_USER' })).toBe('••••••234F');
   });
@@ -51,6 +55,7 @@ describe('canReveal', () => {
     expect(canReveal('ADMIN')).toBe(true);
     expect(canReveal('OPERATIONS')).toBe(false);
     expect(canReveal('DEVELOPER')).toBe(false);
+    expect(canReveal('FINANCER')).toBe(false);
     expect(canReveal('API_USER')).toBe(false);
   });
 });

@@ -54,7 +54,11 @@ router = APIRouter(tags=["Exporter CRM"])
 
 _STAFF = require_role(UserRole.OPERATIONS, UserRole.COMPLIANCE, UserRole.ADMIN)
 _READER = require_role(
-    UserRole.OPERATIONS, UserRole.COMPLIANCE, UserRole.ADMIN, UserRole.DEVELOPER
+    UserRole.OPERATIONS,
+    UserRole.COMPLIANCE,
+    UserRole.ADMIN,
+    UserRole.DEVELOPER,
+    UserRole.FINANCER,
 )
 
 #: A ceiling on one upload, matched to what the CSV import already refuses, so the

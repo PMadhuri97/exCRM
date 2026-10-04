@@ -23,7 +23,16 @@ export { CompanyHistory, DealHistory } from './HistoryTimeline';
 export { actorLabel } from './actor-label';
 
 // ── Background check — owner: Developer 4A ──
-export { BackgroundCheckGauge } from './BackgroundCheckGauge';
+export { BackgroundCheckChip, BackgroundCheckGauge } from './BackgroundCheckGauge';
 export { RiskChip } from './RiskChip';
 export { BackgroundCheckMoveDialog } from './BackgroundCheckMoveDialog';
 export { DecisionHistory } from './DecisionHistory';
+export { DealsTable, type DealsSort } from './DealsTable';
+export { QueueTable, type QueueColumn, type QueueSort } from './QueueTable';
+export { QueueCustomize } from './QueueCustomize';
+export { KeyFigures } from './KeyFigures';
+export { COMPANY_COLUMNS, type CompanyColumn, type CompanyColumnId } from './company-columns';
+export { DEAL_COLUMNS, type DealColumn, type DealColumnId } from './deal-columns';
+export { SavedListActions, SavedListTabs, type ListDefinition } from './SavedListBar';
+export { LogCallDialog } from './LogCallDialog';
+export { CALL_RESULT_LABEL, CALL_RESULTS, formatDuration } from './call-labels';

@@ -22,18 +22,36 @@ a repeat run.
 from __future__ import annotations
 
 import uuid
+from dataclasses import dataclass
+from datetime import date, timedelta
+from decimal import Decimal
 
 import structlog
 
 from app.modules.onboarding.application.deal_service import DealService
+from app.modules.onboarding.application.purchase_order_service import PurchaseOrderService
 from app.modules.onboarding.domain.entities.deal_enums import DealStage
 from app.platform.database import services as db_services
 
 logger = structlog.get_logger(__name__)
 
 
+@dataclass(frozen=True)
+class _SamplePaperwork:
+    """The deal's purchase order and its invoices (build prompt chunk 2) —
+    number, date, currency and amount each, as an operator would key them in."""
+
+    po_number: str
+    po_date: date
+    currency: str
+    total: Decimal
+    #: (invoice number, invoice date, amount) — one or more.
+    invoices: tuple[tuple[str, date, Decimal], ...]
+
+
 class _SampleDeal:
-    """One deal to bring into being, with its buyer and the stage to leave it at."""
+    """One deal to bring into being, with its buyer, its paperwork and the stage to
+    leave it at."""
 
     def __init__(
         self,
@@ -41,12 +59,14 @@ class _SampleDeal:
         reference: str,
         buyer_name: str,
         buyer_country: str,
+        paperwork: _SamplePaperwork,
         stage: DealStage = DealStage.OPEN,
         buyer_registration_number: str | None = None,
     ) -> None:
         self.reference = reference
         self.buyer_name = buyer_name
         self.buyer_country = buyer_country
+        self.paperwork = paperwork
         self.stage = stage
         self.buyer_registration_number = buyer_registration_number
 
@@ -62,6 +82,17 @@ SAMPLE_DEALS: dict[str, tuple[_SampleDeal, ...]] = {
             buyer_country="NL",
             buyer_registration_number="NL-8899-221",
             stage=DealStage.GATHERING_PAPERWORK,
+            # One order split across two invoices — the tax case chunk 2 names.
+            paperwork=_SamplePaperwork(
+                po_number="RTB-PO-24-0311",
+                po_date=date(2026, 3, 4),
+                currency="EUR",
+                total=Decimal("84000.00"),
+                invoices=(
+                    ("BPM-INV-0311-A", date(2026, 3, 18), Decimal("50000.00")),
+                    ("BPM-INV-0311-B", date(2026, 3, 25), Decimal("34000.00")),
+                ),
+            ),
         ),
         _SampleDeal(
             reference="Hamburg order, April",
@@ -69,6 +100,13 @@ SAMPLE_DEALS: dict[str, tuple[_SampleDeal, ...]] = {
             buyer_country="DE",
             buyer_registration_number="HRB-77321",
             stage=DealStage.HANDED_OVER,
+            paperwork=_SamplePaperwork(
+                po_number="HIG-4471",
+                po_date=date(2026, 4, 2),
+                currency="EUR",
+                total=Decimal("126500.00"),
+                invoices=(("BPM-INV-0402", date(2026, 4, 20), Decimal("126500.00")),),
+            ),
         ),
     ),
     # §3.9 company C: one open deal that cannot be handed over. It is left gathering
@@ -80,6 +118,14 @@ SAMPLE_DEALS: dict[str, tuple[_SampleDeal, ...]] = {
             buyer_name="Gulf Fresh Foods LLC",
             buyer_country="AE",
             stage=DealStage.GATHERING_PAPERWORK,
+            # Partly invoiced so far — what is left shows on the deal.
+            paperwork=_SamplePaperwork(
+                po_number="GFF/PO/2026/118",
+                po_date=date(2026, 8, 11),
+                currency="USD",
+                total=Decimal("212000.00"),
+                invoices=(("CSE-EXP-2026-0091", date(2026, 8, 30), Decimal("140000.00")),),
+            ),
         ),
     ),
 }
@@ -118,6 +164,8 @@ async def _ensure_deal(company_id: uuid.UUID, sample: _SampleDeal) -> bool:
         existing, _ = await DealService(db).list_for_company(company_id, limit=200)
     found = next((view for view in existing if view.reference == sample.reference), None)
     if found is not None:
+        if not found.stage.is_terminal:
+            await _ensure_paperwork(found.id, sample.paperwork)
         if found.stage is DealStage.OPEN and sample.stage is not DealStage.OPEN:
             async with db_services.AsyncSessionLocal() as db:
                 await DealService(db).transition_stage(
@@ -143,6 +191,7 @@ async def _ensure_deal(company_id: uuid.UUID, sample: _SampleDeal) -> bool:
             registration_number=sample.buyer_registration_number,
             actor_id=None,
         )
+    await _ensure_paperwork(view.id, sample.paperwork)
     # One stage at a time, as a person would: a deal bound for HANDED_OVER stops at
     # GATHERING_PAPERWORK here, and `hand_over_sample_deals` makes the last move.
     stage = (
@@ -160,6 +209,40 @@ async def _ensure_deal(company_id: uuid.UUID, sample: _SampleDeal) -> bool:
         stage=stage.value,
     )
     return True
+
+
+async def _ensure_paperwork(deal_id: uuid.UUID, paperwork: _SamplePaperwork) -> None:
+    """Record the deal's PO and any of its invoices not yet there — through
+    ``PurchaseOrderService``, as an operator would, and idempotently."""
+    async with db_services.AsyncSessionLocal() as db:
+        current = await PurchaseOrderService(db).get(deal_id)
+    if current is None:
+        async with db_services.AsyncSessionLocal() as db:
+            current = await PurchaseOrderService(db).set_purchase_order(
+                deal_id,
+                po_number=paperwork.po_number,
+                po_date=paperwork.po_date,
+                currency=paperwork.currency,
+                total_amount=paperwork.total,
+                payment_terms="60 days from invoice",
+                source_document_id=None,
+                actor_id=None,
+            )
+    have = {invoice.invoice_number for invoice in current.invoices}
+    for number, issued, amount in paperwork.invoices:
+        if number in have:
+            continue
+        async with db_services.AsyncSessionLocal() as db:
+            await PurchaseOrderService(db).add_invoice(
+                deal_id,
+                invoice_number=number,
+                invoice_date=issued,
+                due_date=issued + timedelta(days=60),
+                amount=amount,
+                currency=None,
+                source_document_id=None,
+                actor_id=None,
+            )
 
 
 async def hand_over_sample_deals() -> int:

@@ -12,7 +12,9 @@
 
 import type {
   CriterionResultValue,
+  DealStage,
   ExporterJourney,
+  ExporterSource,
   ExporterMarker,
   QualificationState,
 } from './types';
@@ -78,4 +80,34 @@ export const RESULT_CLASSES: Record<CriterionResultValue, string> = {
   PASS: 'text-status-passed',
   FAIL: 'text-status-failed',
   UNKNOWN: 'text-ink-muted',
+};
+
+/** A deal's stages in the order a deal moves through them — the Deals list's
+ * tabs. Labels only: which move is allowed from where is served per deal
+ * (`allowed_stage_moves`), never copied here. */
+export const DEAL_STAGES: readonly DealStage[] = [
+  'OPEN',
+  'GATHERING_PAPERWORK',
+  'HANDED_OVER',
+  'WITHDRAWN',
+];
+
+export const DEAL_STAGE_LABEL: Record<DealStage, string> = {
+  OPEN: 'Open',
+  GATHERING_PAPERWORK: 'Gathering paperwork',
+  HANDED_OVER: 'Handed over',
+  WITHDRAWN: 'Withdrawn',
+};
+
+/** Where a company came from — the Deals list's "file type" (RXIL or not). */
+export const EXPORTER_SOURCE_LABEL: Record<ExporterSource, string> = {
+  MANUAL: 'Manual entry',
+  SALES: 'Sales',
+  REFERRAL: 'Referral',
+  RXIL: 'RXIL',
+  PARTNER: 'Partner',
+  API: 'API',
+  BROKER: 'Broker',
+  EVENT: 'Event',
+  EXISTING_CUSTOMER: 'Existing customer',
 };

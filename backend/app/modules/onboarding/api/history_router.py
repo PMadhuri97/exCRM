@@ -43,7 +43,11 @@ router = APIRouter(tags=["Exporter CRM"])
 # identifier, so there is nothing here for the masking rules to apply to. The
 # actor's name is added for every reader (`api/actor_names.py`).
 _READER = require_role(
-    UserRole.OPERATIONS, UserRole.COMPLIANCE, UserRole.ADMIN, UserRole.DEVELOPER
+    UserRole.OPERATIONS,
+    UserRole.COMPLIANCE,
+    UserRole.ADMIN,
+    UserRole.DEVELOPER,
+    UserRole.FINANCER,
 )
 
 #: Dimensions DEVELOPER does not see here. Decision D8 (settled 28 September 2026)

@@ -14,6 +14,15 @@ export function isStaffRole(role: UserRole): boolean {
   return role === 'OPERATIONS' || role === 'COMPLIANCE' || role === 'ADMIN';
 }
 
+/**
+ * Staff and FINANCER: may read the background check, screening and verification
+ * results — what an underwriting view needs. FINANCER (underwriter and financier,
+ * one role) reads them and changes nothing; DEVELOPER is refused them (D8).
+ */
+export function canReadUnderwriting(role: UserRole): boolean {
+  return isStaffRole(role) || role === 'FINANCER';
+}
+
 /** ADMIN only: qualification criteria and RXIL intake. */
 export function isAdminRole(role: UserRole): boolean {
   return role === 'ADMIN';

@@ -11,6 +11,7 @@
 /** The company page's tabs, in display order. */
 export const COMPANY_TABS = [
   'overview',
+  'activity',
   'qualification',
   'conversation',
   'deals',
@@ -30,6 +31,7 @@ export const paths = {
     tab && tab !== 'overview'
       ? `/companies/${customerId}?tab=${tab}`
       : `/companies/${customerId}`,
+  deals: '/deals',
   deal: (dealId: string) => `/deals/${dealId}`,
   followUps: '/follow-ups',
   pipeline: '/pipeline',

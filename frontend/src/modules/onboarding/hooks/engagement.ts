@@ -19,12 +19,14 @@ import {
   listConversationHistory,
   listExporterActivities,
   listExporterContacts,
+  logCall,
   logExporterActivity,
   setExporterConversation,
 } from '../api';
 import type {
   AddExporterContactRequest,
   ExporterActivityType,
+  LogCallRequest,
   LogExporterActivityRequest,
   SetConversationRequest,
 } from '../types';
@@ -132,6 +134,30 @@ export function useSetExporterConversation(customerId: string) {
       void queryClient.invalidateQueries({
         queryKey: ['exporterProfile', customerId],
       });
+    },
+  });
+}
+
+/**
+ * Log a call, then refresh everything one save may have changed: the activity log
+ * (the call, and a follow-up), the follow-ups list, the gauge and its history (a
+ * status move), the company history, and the company record.
+ */
+export function useLogCall(customerId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: LogCallRequest) => logCall(customerId, body),
+    onSuccess: () => {
+      for (const key of [
+        ['exporterActivities', customerId],
+        ['followUps'],
+        ['exporterConversation', customerId],
+        ['conversationHistory', customerId],
+        ['companyHistory', customerId],
+        ['exporterProfile', customerId],
+      ]) {
+        void queryClient.invalidateQueries({ queryKey: key });
+      }
     },
   });
 }

@@ -8,20 +8,21 @@
 
 import { Chip, type ChipTone } from '@/components';
 
+import { DEAL_STAGE_LABEL } from '../constants';
 import type { DealStage } from '../types';
 
-const STAGE_LOOK: Record<DealStage, { label: string; tone: ChipTone; className?: string }> = {
-  OPEN: { label: 'Open', tone: 'neutral' },
-  GATHERING_PAPERWORK: { label: 'Gathering paperwork', tone: 'info' },
-  HANDED_OVER: { label: 'Handed over', tone: 'success' },
-  WITHDRAWN: { label: 'Withdrawn', tone: 'neutral', className: 'text-ink-faint' },
+const STAGE_LOOK: Record<DealStage, { tone: ChipTone; className?: string }> = {
+  OPEN: { tone: 'neutral' },
+  GATHERING_PAPERWORK: { tone: 'info' },
+  HANDED_OVER: { tone: 'success' },
+  WITHDRAWN: { tone: 'neutral', className: 'text-ink-faint' },
 };
 
 export function DealStageChip({ stage }: { stage: DealStage }) {
   const look = STAGE_LOOK[stage];
   return (
     <Chip dot tone={look.tone} className={look.className}>
-      {look.label}
+      {DEAL_STAGE_LABEL[stage]}
     </Chip>
   );
 }

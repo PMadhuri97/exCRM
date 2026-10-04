@@ -2,9 +2,11 @@
  * Home — "my work": what is late, who is due a call back, and how the pipeline
  * stands. Replaces the placeholder dashboard.
  *
- * Built from routes that already exist (follow-ups, company search); there is
- * no statistics endpoint, and this page does not pretend there is one. The
- * cards are the onboarding module's, reached through its public facade.
+ * Built from routes that already exist: the key figures come from the deal
+ * summary endpoint (build prompt chunk 0.5), and every number in it is the
+ * server's — nothing is counted or invented here. The follow-up, check-back and
+ * pipeline cards come from their own routes. All of it is the onboarding
+ * module's, reached through its public facade.
  */
 
 import { Plus } from 'lucide-react';
@@ -15,6 +17,7 @@ import { humanize } from '@/lib/format';
 import {
   CheckBacksDueCard,
   FollowUpsDueCard,
+  KeyFigures,
   paths,
   PipelineSummaryCard,
 } from '@/modules/onboarding';
@@ -45,6 +48,9 @@ export function HomePage() {
           )
         }
       />
+
+      {/* Every role that reaches Home may read the summary (the CRM read roles). */}
+      <KeyFigures linked className="mb-5" />
 
       <div className="grid gap-5 lg:grid-cols-2">
         <FollowUpsDueCard userId={String(user.id)} />

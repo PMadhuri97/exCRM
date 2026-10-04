@@ -33,3 +33,7 @@ export * from './verification';
 
 // ── Background check — owner: Developer 4A ──
 export * from './background-check';
+// A deal's purchase order and invoices — build prompt chunk 2.
+export * from './purchase-order';
+// Saved lists — build prompt chunk 3.
+export * from './saved-lists';

@@ -6,10 +6,28 @@ from dotenv import load_dotenv
 # Load environment variables from .env if present
 load_dotenv()
 
-# Fail fast at startup if required configuration variables are missing
-GCP_PROJECT_ID: str = os.environ["GCP_PROJECT_ID"]
-AUDIT_BUCKET_NAME: str = os.environ["AUDIT_BUCKET_NAME"]
-LOG_SINK_LOGGER_NAME: str = os.environ["LOG_SINK_LOGGER_NAME"]
+#: The GCP audit sink (Cloud Logging → Log Sink → retention-locked bucket) is
+#: **paused by default** (decision, 1 October 2026): with this off, no GCP setting
+#: is needed to start, nothing is sent to Google, and audit entries still go to the
+#: application log (and to the in-memory record tests read). Turn it on — with the
+#: real settings below — when the immutable bucket is wanted again.
+AUDIT_SINK_GCP_ENABLED: bool = os.environ.get("AUDIT_SINK_GCP_ENABLED", "false").strip().lower() in (
+    "1",
+    "true",
+    "yes",
+)
+
+
+def _setting(name: str) -> str:
+    """Required when the sink is on (fail fast, as before); a placeholder when paused."""
+    if AUDIT_SINK_GCP_ENABLED:
+        return os.environ[name]
+    return os.environ.get(name) or "audit-sink-paused"
+
+
+GCP_PROJECT_ID: str = _setting("GCP_PROJECT_ID")
+AUDIT_BUCKET_NAME: str = _setting("AUDIT_BUCKET_NAME")
+LOG_SINK_LOGGER_NAME: str = _setting("LOG_SINK_LOGGER_NAME")
 
 # Try to resolve SERVICE_ACCOUNT_EMAIL from environment, or parse it from key JSON file if available
 _email: str | None = os.environ.get("SERVICE_ACCOUNT_EMAIL")
@@ -24,9 +42,14 @@ if not _email:
         except Exception:
             pass
 
-# Fail fast if SERVICE_ACCOUNT_EMAIL cannot be resolved
+# Fail fast if SERVICE_ACCOUNT_EMAIL cannot be resolved — only while the sink is on.
 if not _email:
-    raise KeyError("SERVICE_ACCOUNT_EMAIL must be set in the environment or available in the GCP service account key file")
+    if AUDIT_SINK_GCP_ENABLED:
+        raise KeyError(
+            "SERVICE_ACCOUNT_EMAIL must be set in the environment or available in the GCP "
+            "service account key file"
+        )
+    _email = "audit-sink-paused"
 
 SERVICE_ACCOUNT_EMAIL: str = _email
 

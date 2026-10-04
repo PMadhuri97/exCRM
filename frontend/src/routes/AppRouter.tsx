@@ -1,8 +1,9 @@
-import { BrowserRouter, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router-dom';
 
 import { NotFound } from '@/components';
 import { AppShell } from '@/layout/AppShell';
 import {
+  DealsListPage,
   CompanyRoutes,
   DealDetailPage,
   FollowUpsPage,
@@ -16,6 +17,12 @@ import { HomePage } from '@/pages/HomePage';
 
 import { ProtectedRoute } from './ProtectedRoute';
 
+/** `/advances?…` → `/deals?…`, keeping the query (a tab, a saved list). */
+function LegacyAdvancesRedirect() {
+  const { search } = useLocation();
+  return <Navigate to={`/deals${search}`} replace />;
+}
+
 export function AppRouter() {
   return (
     <BrowserRouter>
@@ -27,6 +34,9 @@ export function AppRouter() {
             <Route path="/companies/*" element={<CompanyRoutes />} />
             <Route path="/follow-ups" element={<FollowUpsPage />} />
             <Route path="/pipeline" element={<PipelinePage />} />
+            <Route path="/deals" element={<DealsListPage />} />
+            {/* The list was called Advances for a while; old links still land. */}
+            <Route path="/advances" element={<LegacyAdvancesRedirect />} />
             <Route path="/deals/:dealId" element={<DealDetailPage />} />
             {/* `/settings/qualification-criteria` is a static path and
                 `/settings/*` a splat, so React Router's ranking picks the

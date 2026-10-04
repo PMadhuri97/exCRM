@@ -1,4 +1,5 @@
 export { AddExporterPage } from './AddExporterPage';
+export { DealsListPage } from './DealsListPage';
 export { CompanyImportPage } from './CompanyImportPage';
 export { DealDetailPage } from './DealDetailPage';
 export { ExporterDetailPage } from './ExporterDetailPage';

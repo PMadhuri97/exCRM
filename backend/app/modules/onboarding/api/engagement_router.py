@@ -36,7 +36,9 @@ from app.modules.onboarding.api.schemas.engagement import (
     ExporterActivityResponse,
     ExporterContactListResponse,
     ExporterContactResponse,
+    LogCallRequest,
     LogExporterActivityRequest,
+    LoggedCallResponse,
     PendingActivityListResponse,
     PendingActivityResponse,
     SetConversationRequest,
@@ -45,6 +47,7 @@ from app.modules.onboarding.application import (
     ConversationService,
     ExporterContactActivityService,
 )
+from app.modules.onboarding.application.call_log_service import CallLogService, StatusMove
 from app.modules.onboarding.domain.engagement_views import ConversationMove
 from app.modules.onboarding.domain.entities.engagement_enums import ExporterActivityType
 from app.platform.authentication.models import User, UserRole
@@ -61,7 +64,11 @@ _STAFF = require_role(UserRole.OPERATIONS, UserRole.COMPLIANCE, UserRole.ADMIN)
 # identifier (`can_reveal_identifiers` is always False for it), per the role
 # matrix in docs/architecture.md, "Roles and masking" (architecture §3.7).
 _READER = require_role(
-    UserRole.OPERATIONS, UserRole.COMPLIANCE, UserRole.ADMIN, UserRole.DEVELOPER
+    UserRole.OPERATIONS,
+    UserRole.COMPLIANCE,
+    UserRole.ADMIN,
+    UserRole.DEVELOPER,
+    UserRole.FINANCER,
 )
 #: Who may set the conversation — the roles `_STAFF` admits
 #: (`docs/contracts/engagement.md` §3). Declared as a set as well as a dependency
@@ -165,6 +172,60 @@ async def log_exporter_activity(
     )
     names = await actor_names(db, current_user, [activity.actor_id])
     return ExporterActivityResponse.model_validate(activity).named(names)
+
+
+@router.post(
+    "/{customer_id}/calls",
+    response_model=LoggedCallResponse,
+    status_code=201,
+    summary="Log a call — and optionally update the status and schedule a follow-up",
+    description=(
+        "Centrex §6's call pop-up in one save: the call (direction, result, duration, "
+        "notes, the contact), an optional conversation move (`status`, with the same "
+        "rules as `PUT /conversation`), and an optional follow-up (`follow_up_at`, in "
+        "the future) on the caller's Follow-ups list. All of it commits together or "
+        "not at all: a refused status move logs no call."
+    ),
+    responses={
+        401: {"description": "Unauthorized"},
+        403: {"description": "OPERATIONS, COMPLIANCE or ADMIN role required"},
+        404: {"description": "Company not found"},
+        409: {"description": "The status move is not available (a LEAD, or no change)"},
+        422: {"description": "A foreign contact, a past follow-up, or a status move missing what it needs"},
+    },
+)
+async def log_call(
+    customer_id: uuid.UUID,
+    body: LogCallRequest,
+    current_user: Annotated[User, Depends(_STAFF)],
+    db: AsyncSession = Depends(get_db),
+) -> LoggedCallResponse:
+    logged = await CallLogService(db).log_call(
+        customer_id,
+        direction=body.direction,
+        result=body.result,
+        duration_seconds=body.duration_seconds,
+        notes=body.notes,
+        contact_id=body.contact_id,
+        actor_id=str(current_user.id),
+        status=(
+            StatusMove(to=body.status.to, reason=body.status.reason, check_back_on=body.status.check_back_on)
+            if body.status
+            else None
+        ),
+        follow_up_at=body.follow_up_at,
+        follow_up_subject=body.follow_up_subject,
+    )
+    names = await actor_names(db, current_user, [logged.call.actor_id])
+    return LoggedCallResponse(
+        call=ExporterActivityResponse.model_validate(logged.call).named(names),
+        follow_up=(
+            ExporterActivityResponse.model_validate(logged.follow_up).named(names)
+            if logged.follow_up
+            else None
+        ),
+        conversation=logged.conversation,
+    )
 
 
 @router.get(

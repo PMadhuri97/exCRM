@@ -32,7 +32,9 @@ from app.modules.onboarding.api.schemas.engagement import (
 from app.modules.onboarding.api.schemas.masking import (
     NotMasked,
     can_reveal_identifiers,
+    mask_email,
     mask_identifier,
+    mask_phone,
 )
 from app.modules.onboarding.domain.entities.exporter_enums import (
     ExporterJourney,
@@ -83,6 +85,9 @@ class _IdentifierMasking:
             "cin": mask_identifier(self.cin),
         }
         fields = type(self).model_fields
+        if "primary_contact_email" in fields:
+            update["primary_contact_email"] = mask_email(self.primary_contact_email)
+            update["primary_contact_phone"] = mask_phone(self.primary_contact_phone)
         if "contacts" in fields:
             update["contacts"] = [contact.masked() for contact in self.contacts]
         if "gstin_warnings" in fields:
@@ -356,9 +361,29 @@ class ExporterProfileListItemResponse(_IdentifierMasking, BaseModel):
     date_added: datetime
     created_at: datetime
     updated_at: datetime
+    status_since: datetime | None = Field(
+        default=None,
+        description="When the company reached its current journey (time in status).",
+    )
+    primary_contact_name: str | None = None
+    primary_contact_email: str | None = Field(
+        default=None,
+        description="Masked as `a•••@domain` for every role but COMPLIANCE and ADMIN.",
+    )
+    primary_contact_phone: str | None = Field(
+        default=None,
+        description="Masked to its last four digits for every role but COMPLIANCE and ADMIN.",
+    )
 
 
 class ExporterProfileSearchResponse(BaseModel):
     profiles: list[ExporterProfileListItemResponse]
     limit: int
     offset: int
+    total: int = Field(description="Every company the filter matches, not just this page.")
+    journey_counts: dict[ExporterJourney, int] = Field(
+        description=(
+            "Companies per journey for every filter **except** `journey`, so each "
+            "journey tab can show its live count."
+        )
+    )

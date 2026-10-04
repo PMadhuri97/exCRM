@@ -39,6 +39,7 @@ from app.modules.onboarding.exceptions import DealTerminalError
 from app.modules.onboarding.infrastructure.storage import LocalDiskStorage
 from app.modules.onboarding.tests.fixtures.auth import auth_header, token_with_role
 from app.modules.onboarding.tests.fixtures.companies import make_company, make_prospect
+from app.modules.onboarding.tests.fixtures.paperwork import add_paperwork
 from app.platform.authentication.models import UserRole
 from app.platform.database import services as db_services
 from app.platform.messaging.ports import InMemoryEventBus
@@ -97,7 +98,8 @@ async def _customer() -> uuid.UUID:
 
 
 async def _deal_ready_to_hand_over(company_id: uuid.UUID) -> uuid.UUID:
-    """A deal at ``GATHERING_PAPERWORK`` with a buyer — everything but the check."""
+    """A deal at ``GATHERING_PAPERWORK`` with a buyer and its purchase order with an
+    invoice (chunk 2) — everything but the check."""
     async with db_services.AsyncSessionLocal() as db:
         view = await DealService(db).open_deal(
             company_id, reference="Rotterdam shipment", actor_id="tester"
@@ -114,6 +116,7 @@ async def _deal_ready_to_hand_over(company_id: uuid.UUID) -> uuid.UUID:
         await DealService(db).transition_stage(
             view.id, DealStage.GATHERING_PAPERWORK, actor_id="tester"
         )
+    await add_paperwork(view.id)
     return view.id
 
 

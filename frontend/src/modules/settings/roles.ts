@@ -11,6 +11,7 @@ export const ROLE_OPTIONS: Role[] = [
   'ADMIN',
   'COMPLIANCE',
   'OPERATIONS',
+  'FINANCER',
   'DEVELOPER',
   'API_USER',
 ];
@@ -23,6 +24,8 @@ export const ROLE_DESCRIPTION: Record<Role, string> = {
     'Everything Operations can do, plus compliance decisions, audit trails, and unmasked tax IDs.',
   OPERATIONS:
     'Day-to-day CRM work: companies, contacts, activities and deals. Tax IDs are masked.',
+  FINANCER:
+    'Underwriting and financing. Reads every company and deal, including background checks and verification results. Tax IDs are masked.',
   DEVELOPER:
     'Read-only technical access. Tax IDs are always masked and can never be revealed.',
   API_USER:
@@ -37,6 +40,7 @@ export const ROLE_CHIP_CLASS: Record<Role, string> = {
   ADMIN: 'bg-brand-50 text-brand-600',
   COMPLIANCE: 'bg-brand-50 text-brand-600',
   OPERATIONS: 'bg-surface-sunken text-ink-muted',
+  FINANCER: 'bg-surface-sunken text-ink-muted',
   DEVELOPER: 'bg-surface-sunken text-ink-muted',
   API_USER: 'bg-surface-sunken text-ink-faint',
 };

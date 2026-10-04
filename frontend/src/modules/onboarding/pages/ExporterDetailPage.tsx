@@ -25,9 +25,8 @@
  * The journey has no control: it is never moved by hand.
  */
 
-import { CalendarClock } from 'lucide-react';
-import { useMemo, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 
 import {
   ErrorState,
@@ -39,13 +38,13 @@ import {
   TabsTrigger,
   useSearchParamState,
 } from '@/components';
-import { formatDate, humanize } from '@/lib/format';
-import { isStaffRole, useCurrentUser } from '@/platform/auth';
-import { MaskedValue } from '@/platform/mask';
+import { formatDate } from '@/lib/format';
+import { canReadUnderwriting, isStaffRole, useCurrentUser } from '@/platform/auth';
 
 import {
   CompanyHistory,
   JourneyChip,
+  LogCallDialog,
   MarkerBadge,
   MarkerControl,
   QualificationChip,
@@ -54,12 +53,14 @@ import {
   useCompanyDeals,
   useExporterActivities,
   useExporterContacts,
-  useExporterConversation,
   useExporterProfileDetail,
 } from '../hooks';
 import { COMPANY_TABS, paths, type CompanyTab } from '../paths';
+import { rememberCompany } from '../recently-viewed';
 import type { ExporterActivityType, ExporterProfileDetail } from '../types';
+import { ActivityTimeline } from './panels/ActivityTimeline';
 import { BackgroundCheckPanel } from './panels/BackgroundCheckPanel';
+import { CompanySummaryCard } from './panels/CompanySummaryCard';
 import { CompanyPanel } from './panels/CompanyPanel';
 import { ConversationPanel } from './panels/ConversationPanel';
 import { DealsPanel } from './panels/DealsPanel';
@@ -72,6 +73,7 @@ const ACTIVITY_PAGE_SIZE = 8;
 
 const TAB_LABEL: Record<CompanyTab, string> = {
   overview: 'Overview',
+  activity: 'Activity',
   qualification: 'Qualification',
   conversation: 'Conversation',
   deals: 'Deals',
@@ -84,65 +86,28 @@ function displayName(profile: ExporterProfileDetail): string {
   return profile.name ?? 'Unnamed company';
 }
 
-/** One labelled fact in the summary strip. */
-function Fact({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="min-w-0">
-      <dt className="text-[11px] font-medium uppercase tracking-wide text-ink-faint">{label}</dt>
-      <dd className="mt-0.5 truncate text-sm text-ink">{children}</dd>
-    </div>
-  );
-}
-
-function SummaryStrip({ profile }: { profile: ExporterProfileDetail }) {
-  const conversation = useExporterConversation(profile.customer_id);
-  const gauge = conversation.data;
-
-  return (
-    <dl className="mt-4 grid grid-cols-2 gap-x-6 gap-y-3 border-t border-border pt-4 sm:grid-cols-3 lg:grid-cols-5">
-      <Fact label="PAN">
-        <MaskedValue value={profile.pan} />
-      </Fact>
-      <Fact label="GSTIN">
-        <MaskedValue value={profile.gstins[0] ?? null} />
-        {profile.gstins.length > 1 && (
-          <span className="ml-1 text-xs text-ink-faint">+{profile.gstins.length - 1}</span>
-        )}
-      </Fact>
-      <Fact label="Country">{profile.country ?? '—'}</Fact>
-      <Fact label="Owner">{profile.relationship_manager ?? '—'}</Fact>
-      <Fact label="Conversation">
-        {gauge ? (
-          <span className="inline-flex flex-wrap items-center gap-x-2">
-            {humanize(gauge.conversation)}
-            {gauge.check_back_on && (
-              <span className="inline-flex items-center gap-1 text-xs text-status-review">
-                <CalendarClock size={12} /> {formatDate(gauge.check_back_on)}
-              </span>
-            )}
-          </span>
-        ) : (
-          '—'
-        )}
-      </Fact>
-    </dl>
-  );
-}
-
 export function ExporterDetailPage() {
   const { customerId } = useParams<{ customerId: string }>();
   const currentUser = useCurrentUser();
   // DEVELOPER reads the CRM (masked) but writes nothing and cannot load
   // verification results — the backend refuses those with 403 — so it gets no
-  // Background check tab at all rather than a tab that renders nothing.
+  // Background check tab at all rather than a tab that renders nothing. FINANCER
+  // reads that tab (underwriting needs it); what it may change there is the
+  // server's `allowed_moves` and `capabilities`, which offer it nothing.
   const isStaff = isStaffRole(currentUser.role);
-  const tabs = isStaff
+  const canViewChecks = canReadUnderwriting(currentUser.role);
+  const tabs = canViewChecks
     ? COMPANY_TABS
     : COMPANY_TABS.filter((value) => value !== 'background-check');
   const { data: profile, isLoading, isError, refetch } = useExporterProfileDetail(customerId);
   const [tab, setTab] = useSearchParamState<CompanyTab>('tab', tabs, 'overview');
   const [activityType, setActivityType] = useState<ExporterActivityType | ''>('');
   const [activityPage, setActivityPage] = useState(0);
+
+  // Feeds the Companies list's "Recently viewed" bar (this browser only).
+  useEffect(() => {
+    if (profile) rememberCompany({ id: profile.customer_id, name: profile.name ?? 'Unnamed lead' });
+  }, [profile]);
 
   const contactQuery = useExporterContacts(customerId);
   const activityParams = useMemo(
@@ -155,6 +120,27 @@ export function ExporterDetailPage() {
   );
   const activityQuery = useExporterActivities(customerId, activityParams);
   const dealsQuery = useCompanyDeals(customerId);
+
+  // ── The call pop-up (Centrex §6). `?call=primary` opens it on arrival — the
+  // Companies list's Call action — and is then cleared, so a reload does not reopen.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [call, setCall] = useState<{ open: boolean; contactId: string | null }>({ open: false, contactId: null });
+  const openCall = (contactId: string | null) => setCall({ open: true, contactId });
+  useEffect(() => {
+    if (searchParams.get('call') && profile && isStaff) {
+      const contactsNow = contactQuery.data?.contacts ?? profile.contacts;
+      const primary = contactsNow.find((c) => c.is_primary_contact) ?? contactsNow[0];
+      setCall({ open: true, contactId: primary?.id ?? null });
+      setSearchParams(
+        (current) => {
+          const next = new URLSearchParams(current);
+          next.delete('call');
+          return next;
+        },
+        { replace: true },
+      );
+    }
+  }, [searchParams, profile, isStaff, contactQuery.data, setSearchParams]);
 
   if (!customerId) {
     return <p className="text-sm text-status-failed">Company id is missing.</p>;
@@ -215,7 +201,6 @@ export function ExporterDetailPage() {
             <MarkerControl customerId={customerId} moves={profile.allowed_marker_moves ?? []} />
           }
         />
-        <SummaryStrip profile={profile} />
 
         <TabsList aria-label="Company sections" className="mt-3 border-b-0">
           {tabs.map((value) => (
@@ -231,8 +216,27 @@ export function ExporterDetailPage() {
         </TabsList>
       </div>
 
+      <div className="grid gap-5 lg:grid-cols-[19rem_minmax(0,1fr)] xl:grid-cols-[21rem_minmax(0,1fr)]">
+        <div className="lg:sticky lg:top-44 lg:self-start">
+          <CompanySummaryCard
+            profile={profile}
+            contacts={contacts}
+            canLogCalls={isStaff}
+            canViewChecks={canViewChecks}
+            onLogCall={openCall}
+          />
+        </div>
+        <div className="min-w-0">
       <TabsContent value="overview">
         <CompanyPanel profile={profile} canEdit={isStaff} />
+      </TabsContent>
+      <TabsContent value="activity">
+        <ActivityTimeline
+          customerId={customerId}
+          contacts={contacts}
+          canLogCalls={isStaff}
+          onLogCall={() => openCall(null)}
+        />
       </TabsContent>
       <TabsContent value="qualification">
         <QualificationPanel customerId={customerId} />
@@ -260,11 +264,25 @@ export function ExporterDetailPage() {
         <DocumentsPanel customerId={customerId} isStaff={isStaff} />
       </TabsContent>
       <TabsContent value="background-check">
-        <BackgroundCheckPanel customerId={customerId} isStaff={isStaff} />
+        <BackgroundCheckPanel customerId={customerId} canView={canViewChecks} />
       </TabsContent>
       <TabsContent value="history">
         <CompanyHistory customerId={customerId} />
       </TabsContent>
+        </div>
+      </div>
+
+      {call.open && (
+        <LogCallDialog
+          key={call.contactId ?? 'none'}
+          customerId={customerId}
+          companyName={displayName(profile)}
+          contacts={contacts}
+          initialContactId={call.contactId}
+          open={call.open}
+          onOpenChange={(open: boolean) => setCall((current) => ({ ...current, open }))}
+        />
+      )}
     </Tabs>
   );
 }

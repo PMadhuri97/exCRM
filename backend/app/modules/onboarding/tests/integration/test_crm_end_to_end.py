@@ -19,6 +19,7 @@ from httpx import AsyncClient
 from app.modules.onboarding.application.screening_review_service import SCREENING_CATALOGUE
 from app.modules.onboarding.events import publisher as publisher_module
 from app.modules.onboarding.tests.fixtures.auth import auth_header, token_with_role
+from app.modules.onboarding.tests.fixtures.paperwork import INVOICE_BODY, PO_BODY
 from app.platform.authentication.models import UserRole
 from app.platform.messaging.ports import InMemoryEventBus
 from app.platform.messaging.schemas import EventType
@@ -92,6 +93,10 @@ class _Crm:
                       json={"name": "Rotterdam Trading BV", "country": "NL"})
         await self.ok("POST", f"/deals/{deal['id']}/transitions", self.ops,
                       json={"to_stage": "GATHERING_PAPERWORK"})
+        # Chunk 2: the deal's purchase order, and at least one invoice.
+        await self.ok("PUT", f"/deals/{deal['id']}/purchase-order", self.ops, json=PO_BODY)
+        await self.ok("POST", f"/deals/{deal['id']}/purchase-order/invoices", self.ops,
+                      json=INVOICE_BODY)
         await self.ok("POST", f"/deals/{deal['id']}/documents", self.ops,
                       data={"category": "SHIPPING", "document_type": "bill_of_lading",
                             "source": "EXPORTER_UPLOAD"},
@@ -154,6 +159,9 @@ async def test_the_main_path_from_a_new_lead_to_a_handed_over_deal(
                  json={"name": "Rotterdam Trading BV", "country": "NL"})
     await crm.ok("POST", f"/deals/{deal_id}/transitions", crm.ops,
                  json={"to_stage": "GATHERING_PAPERWORK"})
+    # The deal's purchase order and its invoice (chunk 2) — a handover needs both.
+    await crm.ok("PUT", f"/deals/{deal_id}/purchase-order", crm.ops, json=PO_BODY)
+    await crm.ok("POST", f"/deals/{deal_id}/purchase-order/invoices", crm.ops, json=INVOICE_BODY)
 
     # 7. Paperwork, scanned before it can be opened.
     document = await crm.ok(

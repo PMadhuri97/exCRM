@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from decimal import Decimal
 from typing import Annotated
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -38,7 +39,10 @@ from app.modules.onboarding.api.schemas.masking import (
 )
 from app.modules.onboarding.domain.deal_views import (
     DealListItemView,
+    DealQueueItemView,
+    DealQueuePage,
     DealStageMove,
+    DealSummaryView,
     DealView,
 )
 from app.modules.onboarding.domain.entities.deal_enums import DealStage
@@ -245,10 +249,130 @@ class DealListResponse(BaseModel):
     )
 
 
+#: Roles that may see a company's background check: staff, and FINANCER, whose
+#: underwriting view needs it. DEVELOPER is refused it everywhere (decision D8),
+#: so the queue and the KPI bar leave it out for them.
+_BACKGROUND_CHECK_READERS = _MOVING_ROLES | {UserRole.FINANCER}
+
+
+class DealQueueItemResponse(BaseModel):
+    """One row of the Deals list — the deal, and enough of its company and buyer
+    to triage without opening it (Centrex §5)."""
+
+    id: uuid.UUID
+    company_id: uuid.UUID
+    company_name: str | None
+    company_journey: str
+    company_background_check: str | None = Field(
+        description="The company's background check; `null` for DEVELOPER (decision D8)."
+    )
+    reference: str
+    stage: DealStage
+    buyer_name: str | None
+    buyer_country: str | None
+    handed_over_at: datetime | None
+    created_at: datetime
+    updated_at: datetime
+    po_currency: str | None = Field(description="The PO's currency; `null` before a PO.")
+    po_total: Decimal | None = Field(description="The PO's total; `null` before a PO.")
+    invoice_count: int
+    invoiced_total: Decimal | None = Field(description="The invoices, summed; `null` with none.")
+
+    @classmethod
+    def from_view(cls, view: DealQueueItemView, viewer: User) -> DealQueueItemResponse:
+        return cls(
+            id=view.id,
+            company_id=view.company_id,
+            company_name=view.company_name,
+            company_journey=view.company_journey,
+            company_background_check=(
+                view.company_background_check
+                if viewer.role in _BACKGROUND_CHECK_READERS
+                else None
+            ),
+            reference=view.reference,
+            stage=view.stage,
+            buyer_name=view.buyer_name,
+            buyer_country=view.buyer_country,
+            handed_over_at=view.handed_over_at,
+            created_at=view.created_at,
+            updated_at=view.updated_at,
+            po_currency=view.po_currency,
+            po_total=view.po_total,
+            invoice_count=view.invoice_count,
+            invoiced_total=view.invoiced_total,
+        )
+
+
+class DealQueueResponse(BaseModel):
+    """A page of the Deals list.
+
+    ``total`` counts every row the filter matches; ``stage_counts`` counts them per
+    stage **ignoring the stage filter**, so each stage tab shows its live count.
+    """
+
+    deals: list[DealQueueItemResponse]
+    total: int
+    limit: int
+    offset: int
+    stage_counts: dict[DealStage, int]
+
+    @classmethod
+    def from_page(
+        cls, page: DealQueuePage, viewer: User, *, limit: int, offset: int
+    ) -> DealQueueResponse:
+        return cls(
+            deals=[DealQueueItemResponse.from_view(item, viewer) for item in page.items],
+            total=page.total,
+            limit=limit,
+            offset=offset,
+            stage_counts=page.stage_counts,
+        )
+
+
+class DealSummaryResponse(BaseModel):
+    """The KPI bar over the Deals list. No open value: a deal holds no amount
+    until the PO/invoice work lands."""
+
+    period_start: datetime
+    period_end: datetime
+    stage_counts: dict[DealStage, int]
+    new_leads: int
+    new_customers: int
+    deals_opened: int
+    deals_opened_checks_clear: int | None = Field(
+        description=(
+            "Of the deals opened in the period, how many belong to a company whose "
+            "background check is `CLEAR`; `null` for DEVELOPER (decision D8)."
+        )
+    )
+    average_turnaround_days: float | None
+
+    @classmethod
+    def from_view(cls, view: DealSummaryView, viewer: User) -> DealSummaryResponse:
+        return cls(
+            period_start=view.period_start,
+            period_end=view.period_end,
+            stage_counts=view.stage_counts,
+            new_leads=view.new_leads,
+            new_customers=view.new_customers,
+            deals_opened=view.deals_opened,
+            deals_opened_checks_clear=(
+                view.deals_opened_checks_clear
+                if viewer.role in _BACKGROUND_CHECK_READERS
+                else None
+            ),
+            average_turnaround_days=view.average_turnaround_days,
+        )
+
+
 __all__ = [
     "DealBuyerResponse",
     "DealListItemResponse",
     "DealListResponse",
+    "DealQueueItemResponse",
+    "DealQueueResponse",
+    "DealSummaryResponse",
     "DealResponse",
     "DealStageMoveResponse",
     "OpenDealRequest",

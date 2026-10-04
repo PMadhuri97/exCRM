@@ -55,9 +55,16 @@ export interface ExporterSearchParams {
   journey?: ExporterJourney;
   qualification?: QualificationState;
   marker?: ExporterMarker;
+  /** Added on or after / on or before these calendar days (`YYYY-MM-DD`, UTC). */
+  addedFrom?: string;
+  addedTo?: string;
+  sort?: CompanySort;
+  order?: 'asc' | 'desc';
   limit?: number;
   offset?: number;
 }
+/** What the company list may be sorted by — time in status is `status_since`. */
+export type CompanySort = components['schemas']['CompanySort'];
 export type VerificationResult =
   components['schemas']['VerificationResultResponse'];
 export type VerificationResultList =
@@ -186,6 +193,30 @@ export interface DealListParams {
   offset?: number;
 }
 
+// ── The Deals list: every company's deals, and its KPI bar ──
+/** One row of the Deals list. `company_background_check` is `null` for
+ * DEVELOPER (decision D8) — the server leaves it out, not this screen. */
+export type DealQueueItem = Schemas['DealQueueItemResponse'];
+/** `stage_counts` ignores the stage filter, so each tab shows its live count. */
+export type DealQueue = Schemas['DealQueueResponse'];
+export type DealQueueSort = Schemas['DealQueueSort'];
+export type DealSummary = Schemas['DealSummaryResponse'];
+
+export interface DealQueueParams {
+  stages?: DealStage[];
+  /** Deal reference, company name or buyer name — never an identifier. */
+  q?: string;
+  /** One company's deals only — the company page reuses the same table. */
+  companyId?: string;
+  /** Opened on or after / on or before these calendar days (`YYYY-MM-DD`, UTC). */
+  openedFrom?: string;
+  openedTo?: string;
+  sort?: DealQueueSort;
+  order?: 'asc' | 'desc';
+  limit?: number;
+  offset?: number;
+}
+
 export type CrmDocument = Schemas['DocumentResponse'];
 export type DocumentList = Schemas['DocumentListResponse'];
 export type DocumentCategoryOption = Schemas['DocumentCategoryResponse'];
@@ -268,3 +299,27 @@ export type ScreeningCatalogueItem =
   components['schemas']['ScreeningCatalogueItemResponse'];
 export type ScreeningCapabilities = components['schemas']['ScreeningCapabilities'];
 export type ScreeningItemHistory = components['schemas']['ScreeningItemHistoryResponse'];
+
+// ── A deal's purchase order and invoices (build prompt chunk 2) ──
+/** `purchase_order` is `null` until one is recorded; `can_edit` is the server's
+ * say on whether this viewer may record or change it now. */
+export type DealPaperwork = Schemas['DealPaperworkResponse'];
+export type PurchaseOrder = Schemas['PurchaseOrderResponse'];
+export type Invoice = Schemas['InvoiceResponse'];
+export type SetPurchaseOrderRequest = Schemas['SetPurchaseOrderRequest'];
+export type InvoiceRequest = Schemas['InvoiceRequest'];
+export type ExtractedFields = Schemas['ExtractedFieldsResponse'];
+
+// ── Saved lists (build prompt chunk 3) ──
+/** A named view over the Deals or Companies list — filters, columns, sort; never
+ * rows. Every reader sees every list; ADMIN and DEVELOPER build them. */
+export type SavedList = Schemas['SavedListResponse'];
+export type SavedLists = Schemas['SavedListsResponse'];
+export type SavedListRequest = Schemas['SavedListRequest'];
+export type SavedListObject = Schemas['SavedListObject'];
+
+// ── Logging a call (Centrex §6) ──
+export type CallDirection = Schemas['CallDirection'];
+export type CallResult = Schemas['CallResult'];
+export type LogCallRequest = Schemas['LogCallRequest'];
+export type LoggedCall = Schemas['LoggedCallResponse'];

@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import uuid
 from collections.abc import Iterable, Mapping
+from datetime import UTC, date, datetime, time, timedelta
 
 import structlog
 from sqlalchemy import select
@@ -61,6 +62,7 @@ from app.modules.onboarding.domain.entities.exporter_lifecycle_history import (
 from app.modules.onboarding.domain.entities.exporter_profile import ExporterProfile
 from app.modules.onboarding.domain.entities.qualification_enums import QualificationState
 from app.modules.onboarding.domain.exporter_profile_views import (
+    CompanyListPage,
     CustomerAnnouncement,
     DuplicateGstinWarning,
     ExporterProfileDetail,
@@ -87,6 +89,9 @@ from app.modules.onboarding.infrastructure.repositories import (
     ExporterActivityRepository,
     ExporterContactRepository,
     ExporterProfileRepository,
+)
+from app.modules.onboarding.infrastructure.repositories.exporter_profile_repository import (
+    CompanySort,
 )
 from app.platform.idempotency.models import IdempotencyKeyType, RegistrationResultType
 from app.platform.idempotency.services import complete_key, register_key
@@ -670,6 +675,89 @@ class ExporterProfileService:
             for profile in profiles
         ]
 
+    async def list_companies(
+        self,
+        *,
+        gstin: str | None = None,
+        pan: str | None = None,
+        iec: str | None = None,
+        name_contains: str | None = None,
+        source: ExporterSource | None = None,
+        journey: ExporterJourney | None = None,
+        qualification: QualificationState | None = None,
+        marker: ExporterMarker | None = None,
+        added_on_or_after: date | None = None,
+        added_on_or_before: date | None = None,
+        sort: CompanySort = CompanySort.DATE_ADDED,
+        descending: bool = True,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> CompanyListPage:
+        """The company list as a work queue (Centrex §5): ``search_profiles``' rules
+        — the same filters and the same ``ENDED`` handling (A11) — plus each
+        company's primary contact and time in its journey, the total, and the count
+        per journey. ``name_contains`` also matches the primary contact's name.
+
+        ``added_on_or_after`` / ``added_on_or_before`` are calendar days, both
+        inclusive, read in UTC.
+        """
+        pan = _normalise_term(pan)
+        gstin = _normalise_term(gstin)
+        iec = _normalise_term(iec)
+        name_contains = (name_contains or "").strip() or None
+        searching = any(term is not None for term in (name_contains, pan, gstin, iec))
+
+        rows, total, counts = await self._profiles.search_page(
+            gstin=gstin,
+            pan=pan,
+            iec=iec,
+            name_contains=name_contains,
+            source=source,
+            journey=journey,
+            qualification=qualification,
+            marker=marker,
+            exclude_ended=marker is None and not searching,
+            added_from=_day_start(added_on_or_after),
+            added_before=(
+                _day_start(added_on_or_before + timedelta(days=1))
+                if added_on_or_before is not None
+                else None
+            ),
+            sort=sort,
+            descending=descending,
+            limit=limit,
+            offset=offset,
+        )
+        items = [
+            ExporterProfileListItem(
+                customer_id=profile.customer_id,
+                name=profile.name,
+                country=profile.country,
+                cin=profile.cin,
+                gstins=tuple(profile.gstins),
+                pan=profile.pan,
+                iec=profile.iec,
+                source=profile.source,
+                relationship_manager=profile.relationship_manager,
+                relationship_manager_user_id=profile.relationship_manager_user_id,
+                journey=profile.journey,
+                qualification=profile.qualification,
+                marker=profile.marker,
+                marker_reason=profile.marker_reason,
+                industry=profile.industry,
+                year_established=profile.year_established,
+                date_added=profile.date_added,
+                created_at=profile.created_at,
+                updated_at=profile.updated_at,
+                status_since=status_since,
+                primary_contact_name=contact_name,
+                primary_contact_email=contact_email,
+                primary_contact_phone=contact_phone,
+            )
+            for profile, status_since, contact_name, contact_email, contact_phone in rows
+        ]
+        return CompanyListPage(items=items, total=total, journey_counts=counts)
+
     # ── Journey ───────────────────────────────────────────────────────────
 
     async def _record_journey_start(
@@ -944,5 +1032,10 @@ def _activity_view(activity: ExporterActivity) -> ExporterActivityView:
         created_at=activity.created_at,
     )
 
+
+
+def _day_start(day: date | None) -> datetime | None:
+    """Midnight UTC at the start of ``day``."""
+    return datetime.combine(day, time.min, tzinfo=UTC) if day is not None else None
 
 __all__ = ["ExporterProfileService", "announce_became_customer"]

@@ -21,6 +21,11 @@ class UserRole(str, enum.Enum):
     #: reveal masked PII fields in the Exporter CRM frontend, unlike every
     #: other role.
     DEVELOPER = "DEVELOPER"
+    #: The underwriter and the financier — one role, because in this business they
+    #: are the same person (auth_0005_financer_role). Reads the whole CRM, including
+    #: the background check, screening and verification results an underwriting
+    #: view needs; writes nothing yet. Identifiers stay masked, as for OPERATIONS.
+    FINANCER = "FINANCER"
 
 
 class User(AnerModel):

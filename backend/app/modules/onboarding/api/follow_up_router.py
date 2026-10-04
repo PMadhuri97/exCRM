@@ -58,12 +58,16 @@ router = APIRouter(tags=["Exporter CRM"])
 # (`docs/contracts/engagement.md` §5.5) — the same three that may set the conversation
 # gauge, and for the same reason.
 _STAFF = require_role(UserRole.OPERATIONS, UserRole.COMPLIANCE, UserRole.ADMIN)
-# Reads admit DEVELOPER, like every other CRM read. A follow-up carries a subject, a
+# Reads admit DEVELOPER and FINANCER, like every other CRM read. A follow-up carries a subject, a
 # note and an actor id but no tax identifier, so there is nothing here for the masking
 # rules to apply to and this route returns the same bytes to every role that may call
 # it — the same situation `history_router.py` documents.
 _READER = require_role(
-    UserRole.OPERATIONS, UserRole.COMPLIANCE, UserRole.ADMIN, UserRole.DEVELOPER
+    UserRole.OPERATIONS,
+    UserRole.COMPLIANCE,
+    UserRole.ADMIN,
+    UserRole.DEVELOPER,
+    UserRole.FINANCER,
 )
 
 

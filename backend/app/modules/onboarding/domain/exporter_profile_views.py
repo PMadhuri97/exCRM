@@ -110,6 +110,23 @@ class ExporterProfileListItem:
     date_added: datetime
     created_at: datetime
     updated_at: datetime
+    #: Filled by the paged list (``ExporterProfileService.list_companies``) and
+    #: left empty by the plain search: when the company reached its journey, and
+    #: its primary contact. Email and phone are raw here; the route masks them.
+    status_since: datetime | None = None
+    primary_contact_name: str | None = None
+    primary_contact_email: str | None = None
+    primary_contact_phone: str | None = None
+
+
+@dataclass(frozen=True)
+class CompanyListPage:
+    """A page of the company list, the total behind it, and the count per journey
+    (ignoring the journey filter, so each tab can show its count)."""
+
+    items: list[ExporterProfileListItem]
+    total: int
+    journey_counts: dict[ExporterJourney, int]
 
 
 @dataclass(frozen=True)

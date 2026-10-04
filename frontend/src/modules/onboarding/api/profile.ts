@@ -12,6 +12,7 @@ import type {
   CreateExporterLeadRequest,
   ExporterProfile,
   ExporterProfileDetail,
+  ExporterJourney,
   ExporterProfileListItem,
   ExporterSearchParams,
   SetMarkerRequest,
@@ -22,6 +23,10 @@ export interface SearchExportersResult {
   profiles: ExporterProfileListItem[];
   limit: number;
   offset: number;
+  /** Every company the filter matches — the server always sends it. */
+  total?: number;
+  /** Companies per journey for every filter except `journey` (the tab counts). */
+  journey_counts?: Partial<Record<ExporterJourney, number>>;
 }
 
 function buildQuery(params: ExporterSearchParams): string {
@@ -35,6 +40,10 @@ function buildQuery(params: ExporterSearchParams): string {
     ['journey', params.journey],
     ['qualification', params.qualification],
     ['marker', params.marker],
+    ['added_from', params.addedFrom],
+    ['added_to', params.addedTo],
+    ['sort', params.sort],
+    ['order', params.order],
   ];
   for (const [key, value] of entries) if (value) query.set(key, value);
   query.set('limit', String(params.limit ?? 100));

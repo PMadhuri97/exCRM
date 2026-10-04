@@ -272,21 +272,30 @@ the scanner is a clearly labelled pass-through. Contract:
 
 ## 9. Roles and masking
 
-Five roles (§3.7). Staff are OPERATIONS, COMPLIANCE and ADMIN; DEVELOPER is read-only;
+Six roles (§3.7). Staff are OPERATIONS, COMPLIANCE and ADMIN; DEVELOPER is read-only;
+FINANCER — the underwriter and the financier, one role (`auth_0005_financer_role`) —
+reads the whole CRM including the underwriting data, and writes nothing until its
+decision panel lands;
+a deal is backed by one purchase order with one or more invoices, and is not handed
+over without both (chunk 2); saved lists hold only filters, columns and a sort, so their
+rows are always masked for the viewer, never the builder (chunk 3);
 `API_USER` — what public sign-up grants — reaches nothing in the CRM (asserted by
 `test_api_user_reaches_nothing_in_the_crm`).
 
-| Can… | OPERATIONS | COMPLIANCE | ADMIN | DEVELOPER |
-|---|---|---|---|---|
-| See companies, contacts, deals, documents, history | yes | yes | yes | read, masked |
-| See full PAN / GSTIN / IEC / CIN; search by them | no (masked) | yes | yes | no (masked) |
-| Create and edit companies, contacts, activities; set the marker | yes | yes | yes | no |
-| Record qualification results and outcomes; import a CSV | yes | yes | yes | no |
-| Manage qualification criteria; RXIL company intake | no | no | yes | no |
-| Set the conversation; open and move deals; record buyers; upload documents | yes | yes | yes | no |
-| Start a background check; answer `MORE_INFO` | yes | yes | yes | no |
-| Other background-check moves; screening decisions; record and review verification results | no | yes | yes | no |
-| Read the background check, verifications and screening | yes | yes | yes | **no** (D8) |
+| Can… | OPERATIONS | COMPLIANCE | ADMIN | FINANCER | DEVELOPER |
+|---|---|---|---|---|---|
+| See companies, contacts, deals, documents, history | yes | yes | yes | read, masked | read, masked |
+| See full PAN / GSTIN / IEC / CIN; search by them | no (masked) | yes | yes | no (masked) | no (masked) |
+| Create and edit companies, contacts, activities; set the marker | yes | yes | yes | no | no |
+| Record qualification results and outcomes; import a CSV | yes | yes | yes | no | no |
+| Manage qualification criteria; RXIL company intake | no | no | yes | no | no |
+| Set the conversation; open and move deals; record buyers; upload documents | yes | yes | yes | no | no |
+| Start a background check; answer `MORE_INFO` | yes | yes | yes | no | no |
+| Other background-check moves; screening decisions; record and review verification results | no | yes | yes | no | no |
+| Read the background check, verifications and screening | yes | yes | yes | yes | **no** (D8) |
+| Record a deal's purchase order and invoices (chunk 2) | yes | **no** | yes | no | no |
+| See saved lists (chunk 3) | yes | yes | yes | yes | yes |
+| Build saved lists; change or delete their own (an ADMIN may change any) | no | no | yes | no | yes |
 
 **Masking is done by the server** (`api/schemas/masking.py`), never only by the
 browser: a caller reading the JSON directly must not get what the matrix hides. Tax
